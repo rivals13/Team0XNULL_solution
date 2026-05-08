@@ -134,7 +134,7 @@ const Schedules = () => {
     amount,
     status,
   }) => (
-    <div className="bg-white rounded-2xl p-4 shadow-sm mb-3 flex justify-between items-center border border-gray-50">
+    <div className="bg-white rounded-2xl p-4 shadow-sm mb-3 flex justify-between items-center border border-gray-50 relative overflow-auto">
       <div className="flex gap-4 items-center">
         <div className="bg-gray-100 p-3 rounded-xl text-xl text-gray-700">
           {icon}
@@ -164,7 +164,7 @@ const Schedules = () => {
   );
 
   return (
-    <div className="bg-gray-50 min-h-screen p-4 md:p-8 font-sans text-gray-900">
+    <div className="bg-gray-50 min-h-screen p-4 md:p-8 font-sans text-gray-900 relative overflow-auto">
       {/* ========================= */}
       {/* HEADER */}
       {/* ========================= */}

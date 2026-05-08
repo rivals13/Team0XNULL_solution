@@ -32,7 +32,7 @@ const Home = () => {
     }
   }, []);
 
-  // 🔔 FIXED: instant open + delayed content
+  
   const handleNotificationClick = () => {
     setShowNotification(true);  // open instantly
     setLoading(true);           // start loading
@@ -43,7 +43,7 @@ const Home = () => {
   };
 
   return (
-    <div className="bg-[#F3F4F6] min-h-screen pb-10 relative">
+    <div className="bg-[#F3F4F6] min-h-screen pb-10 relative overflow-auto" >
       {/* HEADER */}
       <div className="flex justify-between items-center px-4 pt-4">
         <div>
@@ -98,37 +98,42 @@ const Home = () => {
                   <>  
 
                 {/* ITEM */}
-                <div className="border-b pb-3 mb-3">
-                  <p className="font-medium text-sm">
-                    Vianet bill due soon
-                  </p>
+                <div className="space-y-3">
 
-                  <p className="text-xs text-gray-500 mt-1">
-                    Your internet bill is due in 2 days.
-                  </p>
-                </div>
+  {/* ITEM */}
+  <div className="border border-gray-200 bg-white p-3 rounded-xl hover:bg-gray-100 hover:shadow-sm transition duration-200 cursor-pointer">
+    <p className="font-semibold text-sm text-gray-800">
+      Vianet bill due soon
+    </p>
 
-                {/* ITEM */}
-                <div className="border-b pb-3 mb-3">
-                  <p className="font-medium text-sm">
-                    Cashback received
-                  </p>
+    <p className="text-xs text-gray-500 mt-1">
+      Your internet bill is due in 2 days.
+    </p>
+  </div>
 
-                  <p className="text-xs text-gray-500 mt-1">
-                    You received NPR 120 cashback.
-                  </p>
-                </div>
+  {/* ITEM */}
+  <div className="border border-gray-200 bg-white p-3 rounded-xl hover:bg-gray-100 hover:shadow-sm transition duration-200 cursor-pointer">
+    <p className="font-semibold text-sm text-gray-800">
+      Cashback received
+    </p>
 
-                {/* ITEM */}
-                <div>
-                  <p className="font-medium text-sm">
-                    Payment successful
-                  </p>
+    <p className="text-xs text-gray-500 mt-1">
+      You received NPR 120 cashback.
+    </p>
+  </div>
 
-                  <p className="text-xs text-gray-500 mt-1">
-                    Electricity bill paid successfully.
-                  </p>
-                </div>
+  {/* ITEM */}
+  <div className="border border-gray-200 bg-white p-3 rounded-xl hover:bg-gray-100 hover:shadow-sm transition duration-200 cursor-pointer">
+    <p className="font-semibold text-sm text-gray-800">
+      Payment successful
+    </p>
+
+    <p className="text-xs text-gray-500 mt-1">
+      Electricity bill paid successfully.
+    </p>
+  </div>
+
+</div>
                 </>
                 )}
               </div>
