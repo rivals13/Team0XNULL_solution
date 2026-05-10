@@ -1,9 +1,63 @@
-
 # PaySmart
 
 Intelligent Payment Scheduling & Recurring Payment Automation solution developed for the eSewa × WWF Hackathon 2026 by Team 0XNULL.
 
-PaySmart helps users manage recurring payments through smart bill alerts, payment scheduling, automation suggestions, and low-balance notifications.
+PaySmart is designed to simplify recurring digital payments through intelligent automation, smart bill alerts, recurring payment scheduling, AI-based payment pattern detection, and low-balance awareness notifications.
+
+The solution aims to transform digital wallets into proactive financial assistants that reduce repetitive manual effort while improving user convenience and payment reliability.
+
+---
+
+# Problem Statement
+
+Recurring payments such as electricity bills, internet subscriptions, rent, and monthly services are predictable expenses. However, users still manually repeat the same payment process every month.
+
+Existing scheduling and automation systems are often difficult to discover or require multiple setup steps, causing users to rely on manual payment habits.
+
+PaySmart addresses these challenges by making payment automation more visible, intelligent, and user-friendly.
+
+---
+
+# Core Features
+
+## Smart Bill Alerts
+
+- Detects upcoming bills
+- Sends contextual in-app reminders
+- Pre-fills payment information
+- Allows instant payment or scheduling
+
+---
+
+## AI-Based Pattern Detection
+
+The system analyzes:
+
+- Same recipient
+- Similar transaction amount
+- Repeating payment intervals
+
+When recurring behavior is detected, PaySmart generates automation suggestions.
+
+---
+
+## Flexible Scheduling
+
+Users can:
+
+- Schedule payments within flexible time windows
+- Handle dynamic payment amounts
+- Modify schedules easily
+
+---
+
+## Low Balance Notifications
+
+Before automated execution:
+
+- Wallet balance is verified
+- Users receive preventive low-balance alerts
+- Users can top up or reschedule payments
 
 ---
 
@@ -29,7 +83,7 @@ git --version
 
 ---
 
-## Clone the Repository
+## Clone Repository
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
@@ -59,7 +113,7 @@ npm install
 npm run dev
 ```
 
-The application will run on:
+Application runs at:
 
 ```bash
 http://localhost:5173
@@ -71,16 +125,16 @@ http://localhost:5173
 
 PaySmart allows users to:
 
-- Detect recurring payment patterns
-- Receive smart bill alerts
+- Detect recurring payment behavior
+- Receive intelligent bill reminders
 - Schedule recurring payments
-- Manage payment reminders
-- Receive low-balance notifications
+- Enable payment automation
+- Receive real-time notifications
 
-Example:
+Example workflow:
 
 ```bash
-Open dashboard → Select utility → Schedule payment → Confirm automation
+Dashboard → Smart Suggestion → Schedule Payment → Confirm Automation
 ```
 
 ---
@@ -101,7 +155,7 @@ npm run preview
 
 ---
 
-# Technologies
+# Technology Stack
 
 Technologies used in the project:
 
@@ -114,65 +168,36 @@ Technologies used in the project:
 
 ---
 
+# System Architecture
+
+The system follows a modular architecture consisting of:
+
+- React frontend for dashboard and scheduling interface
+- NestJS backend for APIs and scheduling logic
+- FastAPI microservice for intelligent pattern analysis
+- PostgreSQL database for transactions and recurring schedules
+- WebSocket/FCM for real-time notifications
+
+---
+
+# Team 0XNULL
+
+| Name | Responsibility |
+|---|---|
+| Sansar Chhetri | Python (FastAPI) |
+| Nirmal Bista | PostgreSQL Database |
+| Rajkumar Tiruwa | UI/UX Design |
+| Paras Adhikari | Frontend Development |
+| Abishek Kunwar | Backend Development (NestJS) |
+
+---
+
 # Contributing
 
 Steps to contribute:
 
-1. Fork the repository# Project Title
-
-Basic description of your project.
-
-## Instalation
-
-Instructions on how to get a copy of the project and running on your local machine.
-
-### Prerequisites
-
-_A guide on how to install the tools needed for running the project._
-
-Explain the process step by step.
-
-```bash
-Install something
-```
-
-## Usage
-
-Explain how to test the project and give some example.
-
-```bash
-Example
-```
-
-## Deploy
-
-Describe the tools needed to deploy a new project.
-
-## Technologies
-
-_Name the technologies used in the project._ 
-* [Spring](https://spring.io/) - Framework Used.
-* [React](https://reactjs.org/) - UI Library.
-* [Hibernate](https://hibernate.org/) - ORM.
-
-## Contributing
-
-Describe the steps to follow if someone wants to contribute to your project.
-
-## Documentation
-
-Specify [where](https://es.wikipedia.org/wiki/Wikipedia:Portada) people can find more documentation about your project.
-
-## Acknowledgments
-
-_Mention all those who helped you build the project, inspired you etc._
-
-* [Linus Torvalds](https://github.com/torvalds)
-* [Dan Abramov](https://github.com/gaearon)
-
-## License
-Describe the project [license](https://choosealicense.com/) agreements.
-2. Create a new branch
+1. Fork the repository
+2. Create a feature branch
 3. Commit changes
 4. Push updates
 5. Create a Pull Request
@@ -181,21 +206,33 @@ Describe the project [license](https://choosealicense.com/) agreements.
 
 # Documentation
 
-Additional project documentation and architecture details can be found inside the project report and source files.
+Additional project details, architecture, and workflow documentation are included within the project report and source files.
 
 ---
 
-# Team 0XNULL
+# Security & Privacy
 
-- Sansar Chhetri
-- Nirmal Bista
-- Rajkumar Tiruwa
-- Paras Adhikari
-- Abishek Kunwar
+PaySmart ensures:
+
+- Secure API communication
+- User-approved automation
+- Protected transaction handling
+- Real-time payment notifications
+- Safe recurring payment execution
+
+---
+
+# Expected Impact
+
+PaySmart aims to:
+
+- Reduce missed payments
+- Improve user convenience
+- Increase transaction consistency
+- Enhance user engagement within eSewa
 
 ---
 
 # License
 
 This project is developed for educational and hackathon purposes.
-
