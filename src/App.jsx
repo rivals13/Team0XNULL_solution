@@ -7,6 +7,7 @@ import Schedules from './pages/Schedules'
 import More from './pages/More'
 import { Routes, Route } from 'react-router-dom'
 import SchedulesList from './pages/SchedulesList'
+import AutomationDashboard from './pages/AutomationDashboard'
 
 const App = () => {
   return (
@@ -18,6 +19,8 @@ const App = () => {
         <Route path="/statement" element={<Statement />} />
         <Route path="/schedules" element={<SchedulesList />} />
         <Route path="/schedules-list" element={<SchedulesList />} />
+        <Route path="/automation-dashboard" element={<AutomationDashboard />} />
+        <Route path="/automation" element={<AutomationDashboard />} />
         <Route path="/more" element={<More />} />
         <Route path="/footer" element={<Footer />} /> 
       </Routes>

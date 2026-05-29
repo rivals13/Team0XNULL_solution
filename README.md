@@ -71,6 +71,7 @@ Make sure the following tools are installed:
 
 - Node.js
 - npm
+- Python 3.14+
 - Git
 
 Verify installation:
@@ -103,11 +104,12 @@ cd YOUR_REPOSITORY
 
 ```bash
 npm install
+python -m pip install -r requirements.txt
 ```
 
 ---
 
-## Run Development Server
+## Run the Frontend
 
 ```bash
 npm run dev
@@ -117,6 +119,20 @@ Application runs at:
 
 ```bash
 http://localhost:5173
+```
+
+---
+
+## Run the Backend
+
+```bash
+python -m uvicorn backend.main:app --reload --port 8000
+```
+
+The API runs at:
+
+```bash
+http://127.0.0.1:8000
 ```
 
 ---
@@ -134,7 +150,7 @@ PaySmart allows users to:
 Example workflow:
 
 ```bash
-Dashboard → Smart Suggestion → Schedule Payment → Confirm Automation
+JSON transaction log → FastAPI pattern detection → Schedules prompt → Automation dashboard
 ```
 
 ---
@@ -153,6 +169,8 @@ Preview production build:
 npm run preview
 ```
 
+To run the API in production mode, use a process manager such as Uvicorn or Gunicorn behind a reverse proxy.
+
 ---
 
 # Technology Stack
@@ -161,10 +179,10 @@ Technologies used in the project:
 
 - React.js
 - Vite
-- NestJS
 - FastAPI
-- PostgreSQL
-- Figma
+- Scikit-learn
+- JSON file storage
+- JWT authentication
 
 ---
 
@@ -172,11 +190,20 @@ Technologies used in the project:
 
 The system follows a modular architecture consisting of:
 
-- React frontend for dashboard and scheduling interface
-- NestJS backend for APIs and scheduling logic
-- FastAPI microservice for intelligent pattern analysis
-- PostgreSQL database for transactions and recurring schedules
-- WebSocket/FCM for real-time notifications
+- React frontend for the schedules prompt and automation dashboard
+- FastAPI backend for transaction CRUD, pattern insights, and automation workflows
+- JSON files for transaction history and saved automation rules
+- Scikit-learn recurring-pattern detection over grouped transaction history
+- JWT-protected API requests between the frontend and backend
+
+### API Endpoints
+
+- `POST /auth/login` issues a demo JWT
+- `GET /transactions` returns stored transaction history
+- `POST /transactions` creates a transaction record
+- `GET /patterns` returns detected recurring-payment insights
+- `GET /automation` lists saved automation rules
+- `POST /automation` saves a recurring-payment automation rule
 
 ---
 

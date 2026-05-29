@@ -81,10 +81,10 @@ const Home = () => {
 
   const openLBEFPayment = () => {
     setPaymentDetails({
-      name: "LBEF College",
+      name: "LBEF College Fee",
       id: "STU-9841-2024",
-      amount: "100,000",
-      type: "Semester Fee",
+      amount: "150,000",
+      type: "College Fee",
       icon: lbefImg,
     });
 
@@ -584,16 +584,16 @@ const Home = () => {
                 <img src={neaImg} alt="NEA" className="w-full h-full object-contain" />
               </div>
               <div>
-                <p className="text-sm font-extrabold text-amber-800">NEA Electricity</p>
+                <p className="text-sm font-extrabold text-amber-800">NEA Wi-Fi Bill</p>
                 <p className="text-xs text-amber-700 font-medium leading-relaxed mt-0.5">
-                  Scheduled payment failed — insufficient funds in your wallet.
+                  Scheduled payment failed on 2025-07-30 — insufficient funds in your wallet.
                 </p>
               </div>
             </div>
 
             <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex justify-between items-center mb-8">
               <span className="text-sm font-semibold text-gray-400 uppercase tracking-tighter">Amount Due</span>
-              <span className="text-lg font-black text-gray-900">NPR 2,450</span>
+              <span className="text-lg font-black text-gray-900">NPR 1,000</span>
             </div>
 
             <div className="flex flex-col gap-3">
@@ -718,12 +718,10 @@ const Home = () => {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-extrabold text-red-700">
-                            LBEF College
-                          </p>
+                          <p className="text-xs font-extrabold text-red-700">LBEF College Fee</p>
 
                           <p className="text-[11px] text-red-600 font-medium truncate">
-                            You have 100k due
+                            You have NPR 150,000 due
                           </p>
                         </div>
 
@@ -767,11 +765,11 @@ const Home = () => {
 
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-extrabold text-amber-700">
-                            NEA Electricity
+                            NEA Wi-Fi Bill
                           </p>
 
                           <p className="text-[11px] text-amber-600 font-medium truncate">
-                            Scheduled payment failed — low balance
+                            Scheduled payment failed on 2025-07-30 — low balance
                           </p>
                         </div>
 
@@ -865,7 +863,7 @@ const Home = () => {
                 onClick={() => navigate("/schedules")}
                 className="text-[#00654b] text-sm font-bold hover:underline"
               >
-                View All
+                See more
               </button>
             </div>
 
@@ -881,10 +879,20 @@ const Home = () => {
 
               <ScheduleCard
                 img={neaImg}
-                title="NEA Electricity"
-                subtitle="Due in 4 days"
-                amount="NPR 2,450"
+                title="NEA Wi-Fi Bill"
+                subtitle="Due on 2025-07-30"
+                amount="NPR 1,000"
                 bg="bg-blue-50"
+              />
+
+              <ScheduleCard
+                icon="account_balance"
+                title="Nabil Bank Loan"
+                subtitle="Monthly repayment"
+                amount="NPR 50,000"
+                bg="bg-amber-50"
+                iconBg="bg-amber-100"
+                iconColor="text-amber-700"
               />
             </div>
           </section>
@@ -1021,21 +1029,30 @@ const QuickAction = ({ icon, label, fill = 0 }) => (
 
 const ScheduleCard = ({
   img,
+  icon,
   title,
   subtitle,
   amount,
   bg,
+  iconBg = "bg-white",
+  iconColor = "text-[#00654b]",
 }) => (
   <div className="min-w-[240px] bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4 active:scale-95 transition-transform">
 
     <div
       className={`w-14 h-14 ${bg} rounded-xl flex items-center justify-center overflow-hidden p-2 flex-shrink-0`}
     >
-      <img
-        src={img}
-        alt={title}
-        className="w-full h-full object-contain"
-      />
+      {img ? (
+        <img
+          src={img}
+          alt={title}
+          className="w-full h-full object-contain"
+        />
+      ) : (
+        <div className={`flex h-full w-full items-center justify-center rounded-xl ${iconBg}`}>
+          <Icon name={icon} size={24} className={iconColor} />
+        </div>
+      )}
     </div>
 
     <div className="overflow-hidden">
