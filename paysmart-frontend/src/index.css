@@ -1,0 +1,20 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+body { font-family: 'Inter', sans-serif; background: #f5f7f5; margin: 0; -webkit-font-smoothing: antialiased; }
+#root { max-width: 430px; margin: 0 auto; min-height: 100vh; background: #fff; position: relative; overflow-x: hidden; }
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* Page layout wrapper used across all screen components */
+.page {
+  min-height: 100vh;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}

@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "declaration": true,
+    "removeComments": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
+    "target": "ES2021",
+    "sourceMap": true,
+    "outDir": "./dist",
+    "baseUrl": "./",
+    "incremental": true,
+    "skipLibCheck": true,
+    "strictNullChecks": false,
+    "noImplicitAny": false,
+    "strictBindCallApply": false,
+    "forceConsistentCasingInFileNames": false,
+    "noFallthroughCasesInSwitch": false,
+    "paths": {
+      "@auth/*": ["src/auth/*"],
+      "@users/*": ["src/users/*"],
+      "@transactions/*": ["src/transactions/*"],
+      "@schedule/*": ["src/schedule/*"],
+      "@payments/*": ["src/payments/*"],
+      "@notifications/*": ["src/notifications/*"],
+      "@webhooks/*": ["src/webhooks/*"],
+      "@external/*": ["src/external/*"],
+      "@prisma/*": ["src/prisma/*"],
+      "@queue/*": ["src/queue/*"],
+      "@common/*": ["src/common/*"]
+    }
+  }
+}

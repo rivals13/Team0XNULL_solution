@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx prisma *)",
+      "Bash(expect -v)",
+      "Bash(find /Users/abishekkunwar/Documents/Claude/Projects/PaySmart -name \"package.json\" -not -path \"*/node_modules/*\" | sort)",
+      "Bash(find /Users/abishekkunwar/Documents/Claude/Projects/PaySmart -name \"*.py\" -not -path \"*/node_modules/*\" -not -path \"*/__pycache__/*\" | head -20)",
+      "Bash(npm run *)"
+    ]
+  }
+}

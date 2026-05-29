@@ -1,0 +1,350 @@
+// ─── PaySmart Database Schema ─────────────────────────────────────────────────
+// eSewa Hackathon Challenge 11
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  USER
+  MERCHANT
+  ADMIN
+}
+
+enum TransactionType {
+  DEBIT
+  CREDIT
+}
+
+enum TransactionStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum ScheduleFreq {
+  ONCE
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  QUARTERLY
+  YEARLY
+  CUSTOM_CRON
+}
+
+enum ScheduleStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum BillStatus {
+  PENDING
+  PAID
+  OVERDUE
+  CANCELLED
+  DISPUTED
+}
+
+enum SuggestionType {
+  BILL_REMINDER
+  PAYMENT_SUGGESTION
+  SCHEDULE_RECOMMENDATION
+  SPENDING_INSIGHT
+  SAVINGS_TIP
+}
+
+enum SuggestionStatus {
+  PENDING
+  ACCEPTED
+  DISMISSED
+  EXPIRED
+}
+
+enum NotificationType {
+  BILL_DUE
+  BILL_PAID
+  PAYMENT_SUCCESS
+  PAYMENT_FAILED
+  SCHEDULE_REMINDER
+  SCHEDULE_TRIGGERED
+  NEW_SUGGESTION
+  SYSTEM
+}
+
+enum MerchantCategory {
+  UTILITY
+  TELECOM
+  INTERNET
+  INSURANCE
+  GOVERNMENT
+  EDUCATION
+  HEALTHCARE
+  ENTERTAINMENT
+  FINANCE
+  RETAIL
+  OTHER
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+model User {
+  id         String   @id @default(cuid())
+  name       String
+  email      String   @unique
+  phone      String?  @unique
+  password   String
+  avatarUrl  String?
+  fcmToken   String?
+  role       UserRole @default(USER)
+  isActive   Boolean  @default(true)
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  transactions    Transaction[]
+  schedules       Schedule[]
+  notifications   Notification[]
+  bills           Bill[]
+  billerAccounts  BillerAccount[]
+  suggestions     Suggestion[]
+  merchantProfile Merchant?
+
+  @@index([phone])
+  @@map("users")
+}
+
+// ─── Merchant ─────────────────────────────────────────────────────────────────
+model Merchant {
+  id          String           @id @default(cuid())
+  name        String
+  slug        String           @unique
+  category    MerchantCategory
+  logoUrl     String?
+  description String?
+  website     String?
+  isActive    Boolean          @default(true)
+  // Self-registered merchant (MERCHANT-role user) fields
+  userId      String?          @unique   // links to User.id
+  apiKey      String           @unique   @default(cuid())
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  /// Stores eSewa ID, Khalti ID and bank accounts as JSON:
+  /// { esewa?: string, khalti?: string, banks?: [{bankName,accountNumber,accountHolder,branchCode?}] }
+  paymentMethods Json?
+
+  user           User?           @relation(fields: [userId], references: [id])
+  billerAccounts BillerAccount[]
+  bills          Bill[]
+  transactions   Transaction[]
+
+  @@index([category])
+  @@map("merchants")
+}
+
+// ─── BillerAccount ────────────────────────────────────────────────────────────
+model BillerAccount {
+  id            String   @id @default(cuid())
+  userId        String
+  merchantId    String
+  accountNumber String
+  accountName   String?
+  nickname      String?
+  isDefault     Boolean  @default(false)
+  isVerified    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchant     Merchant      @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  bills        Bill[]
+  schedules    Schedule[]
+  transactions Transaction[]
+
+  @@unique([userId, merchantId, accountNumber])
+  @@index([userId])
+  @@index([merchantId])
+  @@map("biller_accounts")
+}
+
+// ─── Bill ─────────────────────────────────────────────────────────────────────
+model Bill {
+  id              String     @id @default(cuid())
+  userId          String
+  merchantId      String
+  billerAccountId String?   // null for merchant-pushed bills
+  amount          Float
+  dueDate         DateTime
+  billingPeriod   String?
+  status          BillStatus @default(PENDING)
+  description     String?
+  paidAt          DateTime?
+  transactionId   String?    @unique
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchant      Merchant       @relation(fields: [merchantId], references: [id], onDelete: Restrict)
+  billerAccount BillerAccount? @relation(fields: [billerAccountId], references: [id])
+  transaction   Transaction?   @relation(fields: [transactionId], references: [id])
+  schedules     Schedule[]
+  suggestions   Suggestion[]
+
+  @@index([userId])
+  @@index([merchantId])
+  @@index([billerAccountId])
+  @@index([status])
+  @@index([dueDate])
+  @@map("bills")
+}
+
+// ─── Transaction ──────────────────────────────────────────────────────────────
+model Transaction {
+  id              String            @id @default(cuid())
+  userId          String
+  merchantId      String?
+  billerAccountId String?
+  scheduleId      String?
+  amount          Float
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  provider        String?
+  recipientId     String?
+  externalId      String?           @unique
+  description     String?
+  failureReason   String?
+  completedAt     DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  merchant      Merchant?      @relation(fields: [merchantId], references: [id])
+  billerAccount BillerAccount? @relation(fields: [billerAccountId], references: [id])
+  schedule      Schedule?      @relation(fields: [scheduleId], references: [id])
+  bill          Bill?
+
+  @@index([userId])
+  @@index([merchantId])
+  @@index([billerAccountId])
+  @@index([scheduleId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("transactions")
+}
+
+// ─── Schedule ─────────────────────────────────────────────────────────────────
+model Schedule {
+  id              String         @id @default(cuid())
+  userId          String
+  billerAccountId String?
+  billId          String?
+  name            String
+  amount          Float
+  provider        String
+  recipientId     String
+  frequency       ScheduleFreq
+  status          ScheduleStatus @default(ACTIVE)
+  nextRunAt       DateTime
+  lastRunAt       DateTime?
+  endDate         DateTime?
+  cronExpression  String?
+  autoRetry       Boolean        @default(true)
+  retryCount      Int            @default(0)
+  maxRetries      Int            @default(3)
+  description     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  billerAccount BillerAccount? @relation(fields: [billerAccountId], references: [id])
+  bill          Bill?          @relation(fields: [billId], references: [id])
+  transactions  Transaction[]
+  suggestions   Suggestion[]
+
+  @@index([userId])
+  @@index([billerAccountId])
+  @@index([status, nextRunAt])
+  @@map("schedules")
+}
+
+// ─── Suggestion ───────────────────────────────────────────────────────────────
+model Suggestion {
+  id         String           @id @default(cuid())
+  userId     String
+  scheduleId String?
+  billId     String?
+  type       SuggestionType
+  status     SuggestionStatus @default(PENDING)
+  title      String
+  body       String
+  metadata   Json?
+  expiresAt  DateTime?
+  actedAt    DateTime?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedule Schedule? @relation(fields: [scheduleId], references: [id])
+  bill     Bill?     @relation(fields: [billId], references: [id])
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([type])
+  @@map("suggestions")
+}
+
+// ─── Notification ─────────────────────────────────────────────────────────────
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  metadata  Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+// ─── Webhook Event (inbound) ──────────────────────────────────────────────────
+model WebhookEvent {
+  id        String   @id @default(cuid())
+  provider  String
+  eventType String
+  payload   Json
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([provider, processed])
+  @@map("webhook_events")
+}
+
+// ─── Registered App (multi-app webhook dispatch) ──────────────────────────────
+model RegisteredApp {
+  id            String   @id @default(cuid())
+  name          String
+  webhookUrl    String?
+  webhookSecret String   @default(cuid())
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("registered_apps")
+}
