@@ -24,6 +24,10 @@ import { CommunityModule } from './community/community.module';
 import { MerchantModule } from './merchant/merchant.module';
 import { BillerAccountsModule } from './biller-accounts/biller-accounts.module';
 import { CommonModule } from './common/common.module';
+import { ConsentModule } from './consent/consent.module';
+import { DataMinimizationModule } from './data-minimization/data-minimization.module';
+import { AuditLogModule } from './audit-log/audit-log.module';
+import { PaymentTokensModule } from './payment-tokens/payment-tokens.module';
 
 @Module({
   imports: [
@@ -93,6 +97,10 @@ import { CommonModule } from './common/common.module';
     MerchantModule,
     BillerAccountsModule,
     CommonModule,
+    ConsentModule,
+    DataMinimizationModule,
+    AuditLogModule,
+    PaymentTokensModule,
   ],
   controllers: [AppController],
   providers: [

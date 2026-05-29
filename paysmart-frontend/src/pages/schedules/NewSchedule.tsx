@@ -1,44 +1,59 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { schedulesApi } from '../../api';
 import Spinner from '../../components/Spinner';
+import { BsWallet2 } from 'react-icons/bs';
+import {
+  BsLightningCharge, BsWifi, BsTv, BsHouseDoor,
+} from 'react-icons/bs';
+import { FaWater } from 'react-icons/fa';
+import { IoSchoolOutline } from 'react-icons/io5';
+import { RiCarLine } from 'react-icons/ri';
+import { MdOutlineSend } from 'react-icons/md';
 
 // ── Bill categories for manual schedule creation ──────────────────────────────
 const BILL_CATEGORIES = [
-  { id: 'ELECTRICITY', label: 'Electricity', emoji: '⚡',
+  { id: 'ELECTRICITY', label: 'Electricity', icon: <BsLightningCharge className="w-5 h-5" />,
     defaultName: 'NEA Electricity Bill',
     idLabel: 'SC Number', idPlaceholder: 'e.g. SC-1234567',
     accountLabel: 'NEA Payment ID / eSewa No.', accountPlaceholder: 'NEA eSewa-linked number' },
-  { id: 'WATER', label: 'Water', emoji: '💧',
+  { id: 'WATER', label: 'Water', icon: <FaWater className="w-5 h-5" />,
     defaultName: 'KUKL Water Bill',
     idLabel: 'Client Code', idPlaceholder: 'e.g. KUKL-12345',
     accountLabel: 'KUKL eSewa No. / Bank A/C', accountPlaceholder: 'KUKL payment number' },
-  { id: 'INTERNET', label: 'Internet', emoji: '🌐',
+  { id: 'INTERNET', label: 'Internet', icon: <BsWifi className="w-5 h-5" />,
     defaultName: 'Internet Bill',
     idLabel: 'Customer ID / Username', idPlaceholder: 'e.g. WL-12345',
     accountLabel: 'ISP eSewa No. / Account', accountPlaceholder: 'Provider payment number' },
-  { id: 'TV', label: 'TV / Cable', emoji: '📺',
+  { id: 'TV', label: 'TV / Cable', icon: <BsTv className="w-5 h-5" />,
     defaultName: 'TV / Cable Bill',
     idLabel: 'Smart Card No.', idPlaceholder: 'e.g. 1234567890',
     accountLabel: 'Provider eSewa No.', accountPlaceholder: 'DishHome / TataPlay number' },
-  { id: 'EDUCATION', label: 'Education', emoji: '🎓',
+  { id: 'EDUCATION', label: 'Education', icon: <IoSchoolOutline className="w-5 h-5" />,
     defaultName: 'School / College Fee',
     idLabel: 'Student ID / Roll No.', idPlaceholder: 'e.g. STU-2026-001',
     accountLabel: 'Institution eSewa / Bank A/C', accountPlaceholder: 'School / college payment no.' },
-  { id: 'TRAFFIC', label: 'Traffic Fine', emoji: '🚔',
+  { id: 'TRAFFIC', label: 'Traffic Fine', icon: <RiCarLine className="w-5 h-5" />,
     defaultName: 'Traffic Fine Payment',
     idLabel: 'Chit Number', idPlaceholder: 'e.g. TC-2082-001',
     accountLabel: 'Traffic Police eSewa No.', accountPlaceholder: 'Nepal Traffic Police number' },
-  { id: 'CUSTOM', label: 'Other', emoji: '📤',
+  { id: 'CUSTOM', label: 'Other', icon: <MdOutlineSend className="w-5 h-5" />,
     defaultName: '',
     idLabel: 'Pay To', idPlaceholder: 'Merchant name or phone number',
     accountLabel: 'eSewa / Bank Account No.', accountPlaceholder: 'Recipient payment number' },
 ];
 
-const PROVIDERS = [
-  { id: 'ESEWA',  label: 'eSewa',           logo: '🟢' },
-  { id: 'KHALTI', label: 'Khalti',          logo: '🟣' },
-  { id: 'WALLET', label: 'PaySmart Wallet', logo: '💚' },
+const ESEWA_LOGO = (
+  <img
+    src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
+    style={{ width: '22px', height: '22px', objectFit: 'contain', borderRadius: '5px' }}
+    alt="eSewa"
+  />
+);
+
+const PROVIDERS: Array<{ id: string; label: string; logo: React.ReactNode }> = [
+  { id: 'ESEWA',  label: 'eSewa',           logo: ESEWA_LOGO },
+  { id: 'WALLET', label: 'PaySmart Wallet', logo: <BsWallet2 className="w-5 h-5 text-primary" /> },
 ];
 
 const FREQUENCIES = ['ONCE', 'MONTHLY', 'QUARTERLY', 'WEEKLY', 'BIWEEKLY', 'YEARLY'];
@@ -277,11 +292,11 @@ export default function NewSchedule() {
                   onClick={() => pickCategory(cat.id)}
                   className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 transition-all active:scale-95 ${
                     selectedCat === cat.id
-                      ? 'border-primary bg-[#E8F5EE]'
-                      : 'border-gray-100 bg-gray-50'
+                      ? 'border-primary bg-[#E8F5EE] text-primary'
+                      : 'border-gray-100 bg-gray-50 text-gray-500'
                   }`}
                 >
-                  <span className="text-xl">{cat.emoji}</span>
+                  <span className="flex items-center justify-center">{cat.icon}</span>
                   <span className={`text-[10px] font-semibold text-center leading-tight ${
                     selectedCat === cat.id ? 'text-primary' : 'text-gray-600'
                   }`}>
@@ -296,8 +311,8 @@ export default function NewSchedule() {
         {/* Manual: category-specific fields (shown after category pick) */}
         {!fromMerchant && selectedCat && catMeta && (
           <div className="bg-gray-50 rounded-2xl p-4 flex flex-col gap-3 border border-gray-100">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-              {catMeta.emoji} {catMeta.label} Details
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+              <span className="text-gray-400">{catMeta.icon}</span> {catMeta.label} Details
             </p>
 
             {/* Bill account ID (SC no. / client code / student ID etc.) */}
@@ -378,7 +393,7 @@ export default function NewSchedule() {
                         : 'border-gray-100 bg-gray-50'
                     }`}
                   >
-                    <span className="text-xl">{p.logo}</span>
+                    <span className="flex items-center justify-center w-6 h-6">{p.logo}</span>
                     <span className={`text-[11px] font-semibold ${form.provider === p.id ? 'text-primary' : 'text-gray-500'}`}>
                       {p.label === 'PaySmart Wallet' ? 'Wallet' : p.label}
                     </span>

@@ -98,7 +98,8 @@ export default function Schedules() {
       {/* Add FAB */}
       <button
         onClick={() => navigate('/schedules/new')}
-        className="fixed bottom-24 right-5 w-14 h-14 bg-primary rounded-full shadow-xl flex items-center justify-center text-white text-2xl z-40 active:scale-95 transition-transform"
+        className="fixed bottom-20 right-4 w-14 h-14 bg-primary rounded-full shadow-xl flex items-center justify-center text-white text-2xl z-50 active:scale-95 transition-transform"
+        style={{ bottom: '80px', right: '16px' }}
       >
         +
       </button>
@@ -119,7 +120,7 @@ function ScheduleCard({
   const statusColor: Record<string, string> = {
     ACTIVE:    'bg-green-100 text-primary',
     PAUSED:    'bg-yellow-100 text-yellow-700',
-    CANCELLED: 'bg-red-100 text-red-600',
+    CANCELLED: 'bg-gray-100 text-gray-400',
     COMPLETED: 'bg-gray-100 text-gray-500',
   };
 

@@ -7,7 +7,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  schemas  = ["paysmart", "esewa_sync"]
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -16,11 +16,15 @@ enum UserRole {
   USER
   MERCHANT
   ADMIN
+
+  @@schema("paysmart")
 }
 
 enum TransactionType {
   DEBIT
   CREDIT
+
+  @@schema("paysmart")
 }
 
 enum TransactionStatus {
@@ -30,6 +34,8 @@ enum TransactionStatus {
   FAILED
   CANCELLED
   REFUNDED
+
+  @@schema("paysmart")
 }
 
 enum ScheduleFreq {
@@ -41,6 +47,8 @@ enum ScheduleFreq {
   QUARTERLY
   YEARLY
   CUSTOM_CRON
+
+  @@schema("paysmart")
 }
 
 enum ScheduleStatus {
@@ -48,6 +56,8 @@ enum ScheduleStatus {
   PAUSED
   COMPLETED
   CANCELLED
+
+  @@schema("paysmart")
 }
 
 enum BillStatus {
@@ -56,6 +66,8 @@ enum BillStatus {
   OVERDUE
   CANCELLED
   DISPUTED
+
+  @@schema("paysmart")
 }
 
 enum SuggestionType {
@@ -64,6 +76,8 @@ enum SuggestionType {
   SCHEDULE_RECOMMENDATION
   SPENDING_INSIGHT
   SAVINGS_TIP
+
+  @@schema("paysmart")
 }
 
 enum SuggestionStatus {
@@ -71,6 +85,8 @@ enum SuggestionStatus {
   ACCEPTED
   DISMISSED
   EXPIRED
+
+  @@schema("paysmart")
 }
 
 enum NotificationType {
@@ -82,6 +98,8 @@ enum NotificationType {
   SCHEDULE_TRIGGERED
   NEW_SUGGESTION
   SYSTEM
+
+  @@schema("paysmart")
 }
 
 enum MerchantCategory {
@@ -96,6 +114,16 @@ enum MerchantCategory {
   FINANCE
   RETAIL
   OTHER
+
+  @@schema("paysmart")
+}
+
+enum TokenType {
+  ESEWA_SESSION
+  KHALTI_SESSION
+  PAYMENT_AUTH
+
+  @@schema("paysmart")
 }
 
 // ─── User ─────────────────────────────────────────────────────────────────────
@@ -120,9 +148,12 @@ model User {
   billerAccounts  BillerAccount[]
   suggestions     Suggestion[]
   merchantProfile Merchant?
+  paymentTokens   PaymentToken[]
+  dataAccessLogs  DataAccessLog[]
 
   @@index([phone])
   @@map("users")
+  @@schema("paysmart")
 }
 
 // ─── Merchant ─────────────────────────────────────────────────────────────────
@@ -152,6 +183,7 @@ model Merchant {
 
   @@index([category])
   @@map("merchants")
+  @@schema("paysmart")
 }
 
 // ─── BillerAccount ────────────────────────────────────────────────────────────
@@ -177,6 +209,7 @@ model BillerAccount {
   @@index([userId])
   @@index([merchantId])
   @@map("biller_accounts")
+  @@schema("paysmart")
 }
 
 // ─── Bill ─────────────────────────────────────────────────────────────────────
@@ -208,6 +241,7 @@ model Bill {
   @@index([status])
   @@index([dueDate])
   @@map("bills")
+  @@schema("paysmart")
 }
 
 // ─── Transaction ──────────────────────────────────────────────────────────────
@@ -242,6 +276,7 @@ model Transaction {
   @@index([status])
   @@index([createdAt])
   @@map("transactions")
+  @@schema("paysmart")
 }
 
 // ─── Schedule ─────────────────────────────────────────────────────────────────
@@ -277,6 +312,7 @@ model Schedule {
   @@index([billerAccountId])
   @@index([status, nextRunAt])
   @@map("schedules")
+  @@schema("paysmart")
 }
 
 // ─── Suggestion ───────────────────────────────────────────────────────────────
@@ -303,6 +339,7 @@ model Suggestion {
   @@index([userId, status])
   @@index([type])
   @@map("suggestions")
+  @@schema("paysmart")
 }
 
 // ─── Notification ─────────────────────────────────────────────────────────────
@@ -321,6 +358,7 @@ model Notification {
   @@index([userId, readAt])
   @@index([userId, createdAt])
   @@map("notifications")
+  @@schema("paysmart")
 }
 
 // ─── Webhook Event (inbound) ──────────────────────────────────────────────────
@@ -334,6 +372,7 @@ model WebhookEvent {
 
   @@index([provider, processed])
   @@map("webhook_events")
+  @@schema("paysmart")
 }
 
 // ─── Registered App (multi-app webhook dispatch) ──────────────────────────────
@@ -347,4 +386,95 @@ model RegisteredApp {
   updatedAt     DateTime @updatedAt
 
   @@map("registered_apps")
+  @@schema("paysmart")
+}
+
+// ─── PaymentToken ─────────────────────────────────────────────────────────────
+// Stores short-lived session tokens for payment providers.
+// NEVER store: passwords, MPINs, OTPs, full bank account numbers, CVVs.
+model PaymentToken {
+  id        String    @id @default(cuid())
+  userId    String
+  token     String    // AES-256-GCM encrypted token value
+  tokenType TokenType
+  expiresAt DateTime
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, tokenType, isActive])
+  @@map("payment_tokens")
+  @@schema("paysmart")
+}
+
+// ─── DataAccessLog ────────────────────────────────────────────────────────────
+// Audit trail for every access to user PII / eSewa data.
+// IP stored with last octet masked: 192.168.1.0 (not .x)
+model DataAccessLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   // e.g. "READ_TRANSACTIONS", "EXPORT_DATA"
+  dataType   String   // e.g. "phone", "email", "esewa_transactions"
+  ipAddress  String?  // last octet masked, e.g. "192.168.1.0"
+  success    Boolean  @default(true)
+  metadata   Json?
+  accessedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, accessedAt])
+  @@index([action])
+  @@map("data_access_logs")
+  @@schema("paysmart")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// esewa_sync schema — eSewa integration data with consent gating
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── EsewaUserConsent ─────────────────────────────────────────────────────────
+// User must grant consent before any eSewa data is fetched/stored.
+// Consent expires after 90 days; user can revoke at any time.
+model EsewaUserConsent {
+  id           String    @id @default(cuid())
+  userId       String    @unique
+  dataTypes    String[]  // e.g. ["transactions","profile","bills"]
+  grantedAt    DateTime  @default(now())
+  expiresAt    DateTime  // grantedAt + 90 days
+  revokedAt    DateTime?
+  isActive     Boolean   @default(true)
+  ipAddress    String?   // consent given from (last octet masked)
+  userAgent    String?
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@map("esewa_user_consent")
+  @@schema("esewa_sync")
+}
+
+// ─── EsewaTransaction ─────────────────────────────────────────────────────────
+// Synced transaction records from eSewa.
+// Encrypted fields: esewaPhone, transactionRef, customerId
+// NEVER stored: eSewa password, MPIN, OTP, full bank numbers, CVV
+model EsewaTransaction {
+  id             String   @id @default(cuid())
+  userId         String
+  esewaPhone     String?  // AES-256-GCM encrypted
+  transactionRef String   // AES-256-GCM encrypted
+  customerId     String?  // AES-256-GCM encrypted
+  amount         Float
+  payee          String?
+  status         String
+  transactionDate DateTime
+  syncedAt       DateTime @default(now())
+  rawMetadata    Json?    // sanitized — no passwords/pins/OTPs
+
+  @@index([userId])
+  @@index([userId, transactionDate])
+  @@map("esewa_transactions")
+  @@schema("esewa_sync")
 }

@@ -1,14 +1,23 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { paymentsApi } from '../../api';
 import type { PaymentProvider, BankAccount } from '../../types';
 import Spinner from '../../components/Spinner';
+import { BsWallet2 } from 'react-icons/bs';
 
-const ALL_PROVIDERS: Array<{ id: PaymentProvider | 'BANK'; label: string; logo: string; color: string }> = [
-  { id: 'ESEWA',  label: 'eSewa',           logo: '🟢', color: 'border-green-500  bg-green-50'  },
-  { id: 'KHALTI', label: 'Khalti',          logo: '🟣', color: 'border-purple-500 bg-purple-50' },
-  { id: 'WALLET', label: 'PaySmart Wallet', logo: '💚', color: 'border-primary bg-[#E8F5EE]'     },
-  { id: 'BANK',   label: 'Bank Transfer',   logo: '🏦', color: 'border-blue-500  bg-blue-50'    },
+const ESEWA_LOGO = (
+  <img
+    src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
+    style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '6px' }}
+    alt="eSewa"
+  />
+);
+const WALLET_LOGO = <BsWallet2 className="w-6 h-6 text-primary" />;
+
+const ALL_PROVIDERS: Array<{ id: PaymentProvider | 'BANK'; label: string; logo: React.ReactNode; color: string }> = [
+  { id: 'ESEWA',  label: 'eSewa',           logo: ESEWA_LOGO,  color: 'border-green-500 bg-green-50'  },
+  { id: 'WALLET', label: 'PaySmart Wallet', logo: WALLET_LOGO, color: 'border-primary bg-[#E8F5EE]'    },
+  { id: 'BANK',   label: 'Bank Transfer',   logo: <span className="text-2xl">🏦</span>, color: 'border-blue-500 bg-blue-50' },
 ];
 
 export default function BillAlert() {
@@ -33,7 +42,7 @@ export default function BillAlert() {
 
   // Auto-select the first provider the merchant actually has configured
   const [provider, setProvider] = useState<PaymentProvider | 'BANK'>(
-    esewaId ? 'ESEWA' : khaltiId ? 'KHALTI' : merchantBanks.length > 0 ? 'BANK' : 'WALLET'
+    esewaId ? 'ESEWA' : merchantBanks.length > 0 ? 'BANK' : 'WALLET'
   );
   const [paying,   setPaying]   = useState(false);
   const [success,  setSuccess]  = useState(false);
@@ -71,7 +80,7 @@ export default function BillAlert() {
         provider: provider === 'BANK' ? 'ESEWA' : provider, // map BANK → ESEWA in backend for now
         recipientId: provider === 'BANK' && selectedBank
           ? selectedBank.accountNumber
-          : (esewaId && provider === 'ESEWA' ? esewaId : (khaltiId && provider === 'KHALTI' ? khaltiId : biller)),
+          : (esewaId && provider === 'ESEWA' ? esewaId : biller),
         description: description || `${biller} bill payment`,
         ...(billId ? { billId } : {}),
       });
@@ -113,9 +122,9 @@ export default function BillAlert() {
               <span className="text-white font-semibold">{accountId}</span>
             </div>
           )}
-          <div className="flex justify-between py-2">
+          <div className="flex justify-between py-2 items-center">
             <span className="text-white/60 text-sm">Paid via</span>
-            <span className="text-white font-semibold">{providerInfo.logo} {providerInfo.label}</span>
+            <span className="text-white font-semibold flex items-center gap-1.5">{providerInfo.logo} {providerInfo.label}</span>
           </div>
         </div>
 
@@ -187,13 +196,17 @@ export default function BillAlert() {
         </div>
 
         {/* ── Merchant payment accounts (locked) ── */}
-        {(esewaId || khaltiId || merchantBanks.length > 0) && (
+        {(esewaId || merchantBanks.length > 0) && (
           <div className="bg-gray-50 border border-gray-100 rounded-2xl p-3.5 mb-4">
             <p className="text-[10px] font-bold text-gray-400 uppercase mb-2">
               🔒 Merchant payment accounts (cannot be changed)
             </p>
-            {esewaId  && <div className="flex items-center gap-2 mb-1.5"><span>🟢</span><div><p className="text-[9px] text-gray-400">eSewa</p><p className="text-sm font-bold text-gray-800">{esewaId}</p></div></div>}
-            {khaltiId && <div className="flex items-center gap-2 mb-1.5"><span>🟣</span><div><p className="text-[9px] text-gray-400">Khalti</p><p className="text-sm font-bold text-gray-800">{khaltiId}</p></div></div>}
+            {esewaId && (
+              <div className="flex items-center gap-2 mb-1.5">
+                <img src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png" style={{ width: '18px', height: '18px', objectFit: 'contain', borderRadius: '4px' }} alt="eSewa" />
+                <div><p className="text-[9px] text-gray-400">eSewa</p><p className="text-sm font-bold text-gray-800">{esewaId}</p></div>
+              </div>
+            )}
             {merchantBanks.map((b, i) => (
               <div key={i} className="flex items-start gap-2 mb-1.5">
                 <span className="mt-0.5">🏦</span>
@@ -215,11 +228,10 @@ export default function BillAlert() {
             // Only show Khalti if merchant has Khalti ID (or no merchant accounts set)
             // Always show Wallet and Bank if merchant has bank accounts
             .filter(p => {
-              const hasAccounts = esewaId || khaltiId || merchantBanks.length > 0;
-              if (!hasAccounts) return p.id !== 'BANK' || merchantBanks.length > 0;
-              if (p.id === 'ESEWA')  return !!esewaId;
-              if (p.id === 'KHALTI') return !!khaltiId;
-              if (p.id === 'BANK')   return merchantBanks.length > 0;
+              const hasAccounts = esewaId || merchantBanks.length > 0;
+              if (!hasAccounts) return p.id !== 'BANK';
+              if (p.id === 'ESEWA') return !!esewaId;
+              if (p.id === 'BANK')  return merchantBanks.length > 0;
               return true; // WALLET always available
             })
             .map(p => (
@@ -230,14 +242,13 @@ export default function BillAlert() {
                   provider === p.id ? p.color : 'border-gray-100 bg-white'
                 }`}
               >
-                <span className="text-2xl">{p.logo}</span>
+                <span className="flex items-center justify-center w-7 h-7">{p.logo}</span>
                 <div className="flex-1 text-left">
                   <span className={`font-semibold text-sm ${provider === p.id ? 'text-gray-800' : 'text-gray-600'}`}>
                     {p.label}
                   </span>
-                  {p.id === 'ESEWA'  && esewaId  && <p className="text-[10px] text-gray-400">Account: {esewaId}</p>}
-                  {p.id === 'KHALTI' && khaltiId  && <p className="text-[10px] text-gray-400">Account: {khaltiId}</p>}
-                  {p.id === 'BANK'   && selectedBank && (
+                  {p.id === 'ESEWA' && esewaId && <p className="text-[10px] text-gray-400">Account: {esewaId}</p>}
+                  {p.id === 'BANK'  && selectedBank && (
                     <p className="text-[10px] text-gray-400">{selectedBank.bankName}</p>
                   )}
                 </div>

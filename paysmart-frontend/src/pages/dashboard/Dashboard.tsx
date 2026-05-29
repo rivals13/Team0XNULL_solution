@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/auth';
 import { useLang } from '../../store/lang';
@@ -10,17 +10,24 @@ import ToastContainer from '../../components/ToastContainer';
 import Spinner from '../../components/Spinner';
 import BottomNav from '../../components/BottomNav';
 import type { Schedule, Suggestion, Notification, Bill } from '../../types';
+import {
+  BsLightningCharge, BsWifi, BsTv, BsShield, BsWallet2, BsBell, BsHouseDoor,
+} from 'react-icons/bs';
+import { FaWater } from 'react-icons/fa';
+import { IoSchoolOutline } from 'react-icons/io5';
+import { RiCarLine } from 'react-icons/ri';
+import { MdOutlinePhoneAndroid, MdFlight, MdLocalMovies, MdMoreHoriz } from 'react-icons/md';
 // BillerAccount type imported above with the api
 
 const UTILITIES = [
-  { label: 'Topup',       emoji: '📱', path: '/pay/mobile' },
-  { label: 'Electricity', emoji: '⚡', path: '/pay/electricity' },
-  { label: 'Water',       emoji: '💧', path: '/pay/water' },
-  { label: 'Internet',    emoji: '🌐', path: '/pay/internet' },
-  { label: 'Television',  emoji: '📺', path: '/pay/tv' },
-  { label: 'Airlines',    emoji: '✈️', path: '/pay/airlines' },
-  { label: 'Movies',      emoji: '🎬', path: '/pay/movies' },
-  { label: 'More',        emoji: '⋯',  path: '/more' },
+  { label: 'Topup',       icon: <MdOutlinePhoneAndroid className="w-5 h-5" />, path: '/pay/mobile' },
+  { label: 'Electricity', icon: <BsLightningCharge className="w-5 h-5" />,     path: '/pay/electricity' },
+  { label: 'Water',       icon: <FaWater className="w-5 h-5" />,               path: '/pay/water' },
+  { label: 'Internet',    icon: <BsWifi className="w-5 h-5" />,                path: '/pay/internet' },
+  { label: 'Television',  icon: <BsTv className="w-5 h-5" />,                  path: '/pay/tv' },
+  { label: 'Airlines',    icon: <MdFlight className="w-5 h-5" />,              path: '/pay/airlines' },
+  { label: 'Movies',      icon: <MdLocalMovies className="w-5 h-5" />,         path: '/pay/movies' },
+  { label: 'More',        icon: <MdMoreHoriz className="w-5 h-5" />,           path: '/more' },
 ];
 
 const QUICK_ACTIONS = [
@@ -85,7 +92,7 @@ export default function Dashboard() {
       if (document.visibilityState === 'visible') {
         usersApi.getMyBills().then(setBills).catch(() => {});
         paymentsApi.getBalance().then(r => setBalance(r.balance)).catch(() => {});
-        schedulesApi.list().then(s => setSchedules(s.slice(0, 3))).catch(() => {});
+        schedulesApi.list().then(s => setSchedules(s.filter((sc: Schedule) => sc.status === 'ACTIVE').slice(0, 3))).catch(() => {});
         billerAccountsApi.list().then(setBillerAccounts).catch(() => {});
       }
     };
@@ -104,7 +111,7 @@ export default function Dashboard() {
           paymentsApi.getBalance(),
           billerAccountsApi.list(),
         ]);
-        setSchedules(s.slice(0, 3));
+        setSchedules(s.filter((sc: Schedule) => sc.status === 'ACTIVE').slice(0, 3));
         setUnread(u.count);
         setBills(b);
         setBalance(bal.balance);
@@ -326,10 +333,10 @@ export default function Dashboard() {
           >
             {lang === 'en' ? 'NP' : 'EN'}
           </button>
-          <button onClick={() => navigate('/notifications')} className="relative text-xl">
-            🔔
+          <button onClick={() => navigate('/notifications')} className="relative text-xl flex items-center justify-center w-8 h-8">
+            <BsBell className="w-5 h-5 text-gray-600" />
             {unread > 0 && (
-              <span className="absolute -top-1 -right-1 w-[7px] h-[7px] bg-red-500 rounded-full border border-white" />
+              <span className="absolute top-0 right-0 w-[7px] h-[7px] bg-red-500 rounded-full border border-white" />
             )}
           </button>
         </div>
@@ -544,8 +551,8 @@ export default function Dashboard() {
             {UTILITIES.map(u => (
               <button key={u.label} onClick={() => navigate(u.path)}
                 className="flex flex-col items-center gap-1.5">
-                <div className="w-11 h-11 rounded-[12px] bg-[#E8F5EE] flex items-center justify-center text-lg">
-                  {u.emoji}
+                <div className="w-11 h-11 rounded-[12px] bg-[#E8F5EE] flex items-center justify-center text-primary">
+                  {u.icon}
                 </div>
                 <span className="text-[10px] text-gray-700 text-center">{u.label}</span>
               </button>
@@ -668,15 +675,17 @@ export default function Dashboard() {
 // Smart Bills section — shown on Dashboard between Suggestions and Pending Bills
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CATEGORY_META: Record<string, { emoji: string; bg: string }> = {
-  ELECTRICITY: { emoji: '⚡', bg: 'bg-amber-50'  },
-  UTILITY:     { emoji: '⚡', bg: 'bg-amber-50'  },
-  WATER:       { emoji: '💧', bg: 'bg-sky-50'    },
-  INTERNET:    { emoji: '🌐', bg: 'bg-blue-50'   },
-  TV:          { emoji: '📺', bg: 'bg-purple-50' },
-  EDUCATION:   { emoji: '🎓', bg: 'bg-violet-50' },
-  TRAFFIC:     { emoji: '🚔', bg: 'bg-red-50'    },
-  GOVERNMENT:  { emoji: '🚔', bg: 'bg-red-50'    },
+const CATEGORY_META: Record<string, { icon: React.ReactNode; bg: string; color: string }> = {
+  ELECTRICITY: { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50',  color: 'text-amber-600'  },
+  UTILITY:     { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50',  color: 'text-amber-600'  },
+  WATER:       { icon: <FaWater className="w-5 h-5" />,           bg: 'bg-sky-50',    color: 'text-sky-600'    },
+  INTERNET:    { icon: <BsWifi className="w-5 h-5" />,            bg: 'bg-blue-50',   color: 'text-blue-600'   },
+  TV:          { icon: <BsTv className="w-5 h-5" />,              bg: 'bg-purple-50', color: 'text-purple-600' },
+  EDUCATION:   { icon: <IoSchoolOutline className="w-5 h-5" />,   bg: 'bg-violet-50', color: 'text-violet-600' },
+  TRAFFIC:     { icon: <RiCarLine className="w-5 h-5" />,         bg: 'bg-red-50',    color: 'text-red-600'    },
+  GOVERNMENT:  { icon: <RiCarLine className="w-5 h-5" />,         bg: 'bg-red-50',    color: 'text-red-600'    },
+  INSURANCE:   { icon: <BsShield className="w-5 h-5" />,          bg: 'bg-green-50',  color: 'text-green-600'  },
+  RENT:        { icon: <BsHouseDoor className="w-5 h-5" />,       bg: 'bg-orange-50', color: 'text-orange-600' },
 };
 
 function SmartBillsSection({
@@ -725,13 +734,13 @@ function SmartBillsSection({
       ) : (
         <div className="flex flex-col gap-2.5">
           {accounts.slice(0, 3).map(acc => {
-            const meta = CATEGORY_META[acc.billerCategory.toUpperCase()] ?? { emoji: '📄', bg: 'bg-gray-50' };
+            const meta = CATEGORY_META[acc.billerCategory.toUpperCase()] ?? { icon: <BsWallet2 className="w-5 h-5" />, bg: 'bg-gray-50', color: 'text-gray-500' };
             const isTrafficFine = acc.billerCategory.toUpperCase() === 'TRAFFIC' || acc.billerSlug.includes('traffic');
             return (
               <div key={acc.id} className="bg-white border border-gray-100 rounded-2xl p-3.5 shadow-card">
                 <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-2xl ${meta.bg} flex items-center justify-center text-xl flex-shrink-0`}>
-                    {meta.emoji}
+                  <div className={`w-11 h-11 rounded-2xl ${meta.bg} ${meta.color} flex items-center justify-center flex-shrink-0`}>
+                    {meta.icon}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-bold text-gray-800 truncate">{acc.billerName}</p>
