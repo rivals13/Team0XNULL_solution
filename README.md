@@ -235,4 +235,4 @@ PaySmart aims to:
 
 # License
 
-This project is developed for educational and hackathon purposes.
+This project is developed for educational and hackathon purposes.# hackathon_show

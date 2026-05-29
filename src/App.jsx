@@ -1,29 +1,28 @@
 import React from 'react'
-import Navbar from './layout/Navbar'
-import Footer from './layout/Footer'
-import Home from './pages/Home'
-import Statement from './pages/Statement'
-import Schedules from './pages/Schedules'
-import More from './pages/More'
 import { Routes, Route } from 'react-router-dom'
+
+import Home from './pages/Home'
+import Login from './pages/Login'
+import Register from './pages/Register'
+import Statement from './pages/Statement'
+import Bills from './pages/Bills'
+import HealthScore from './pages/HealthScore'
+import More from './pages/More'
 import SchedulesList from './pages/SchedulesList'
 
 const App = () => {
   return (
-    <div>
-    
-     <Navbar />
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/statement" element={<Statement />} />
-        <Route path="/schedules" element={<SchedulesList />} />
-        <Route path="/schedules-list" element={<SchedulesList />} />
-        <Route path="/more" element={<More />} />
-        <Route path="/footer" element={<Footer />} /> 
-      </Routes>
-  
-     <Footer />
-    </div>
+    <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/statement" element={<Statement />} />
+      <Route path="/bills" element={<Bills />} />
+      <Route path="/health" element={<HealthScore />} />
+      <Route path="/more" element={<More />} />
+      <Route path="/schedules" element={<SchedulesList />} />
+      <Route path="/schedules-list" element={<SchedulesList />} />
+    </Routes>
   )
 }
 
