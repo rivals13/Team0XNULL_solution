@@ -108,7 +108,7 @@ const Home = () => {
 
       {/* ── WALKTHROUGH ── */}
       {showWalkthrough && (
-        <div className="fixed inset-0 z-[300] bg-white flex flex-col items-center justify-center animate-fade-in p-6">
+        <div className="fixed inset-0 z-300 bg-white flex flex-col items-center justify-center animate-fade-in p-6">
           <header className="absolute top-6 right-6 z-20">
             <button onClick={handleCloseSetup} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 active:scale-90 transition-all">
               <Icon name="close" className="text-gray-600" size={20} />
@@ -119,10 +119,10 @@ const Home = () => {
             <div className="max-w-md w-full flex flex-col items-center animate-fade-in">
               <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#a1f3d1] opacity-30 blur-3xl" />
-                <div className="absolute top-1/2 -left-32 w-[500px] h-[500px] rounded-full bg-[#ffdf9f] opacity-20 blur-3xl" />
+                <div className="absolute top-1/2 -left-32 w-31.25 h-31.25 rounded-full bg-[#ffdf9f] opacity-20 blur-3xl" />
               </div>
               <div className="relative h-64 w-full flex items-center justify-center mb-12 z-10">
-                <div className="w-48 h-72 bg-gradient-to-br from-[#00654b] to-[#004b37] rounded-[32px] shadow-2xl rotate-[-10deg] flex flex-col p-6 text-white">
+                <div className="w-48 h-72 bg-linear-to-br from-[#00654b] to-[#004b37] rounded-4xl shadow-2xl rotate-[-10deg] flex flex-col p-6 text-white">
                   <div className="flex justify-between items-start mb-12">
                     <div className="w-10 h-8 bg-yellow-400/80 rounded-md" />
                     <Icon name="contactless" />
@@ -223,8 +223,8 @@ const Home = () => {
           )}
 
           {showExitConfirm && (
-            <div className="fixed inset-0 z-[400] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
-              <div className="bg-white rounded-[32px] p-8 w-full max-w-xs text-center animate-slide-up">
+            <div className="fixed inset-0 z-400 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
+              <div className="bg-white rounded-4xl p-8 w-full max-w-xs text-center animate-slide-up">
                 <h3 className="text-lg font-extrabold text-gray-900 mb-2">Quit Setup?</h3>
                 <p className="text-sm text-gray-500 mb-8">Your progress won't be saved. Are you sure?</p>
                 <div className="flex flex-col gap-3">
@@ -248,8 +248,8 @@ const Home = () => {
 
       {/* ── PAYMENT PORTAL ── */}
       {showPaymentPortal && (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
-          <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[32px] p-8 shadow-2xl animate-slide-up">
+        <div className="fixed inset-0 z-200 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-4xl p-8 shadow-2xl animate-slide-up">
             <div className="flex justify-between items-center mb-8">
               <h2 className="text-xl font-extrabold text-gray-900">Payment Portal</h2>
               <button onClick={() => setShowPaymentPortal(false)} className="p-2 bg-gray-50 rounded-full"><Icon name="close" size={20} /></button>
@@ -279,7 +279,7 @@ const Home = () => {
 
       {/* ── PAID CONFIRMATION TOAST ── */}
       {showPaidConfirmation && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center pointer-events-none">
+        <div className="fixed inset-0 z-250 flex items-center justify-center pointer-events-none">
           <div className="bg-[#00654b] text-white px-8 py-5 rounded-[28px] shadow-2xl flex items-center gap-4 animate-slide-up">
             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
               <Icon name="check_circle" size={24} fill={1} className="text-white" />
@@ -294,8 +294,8 @@ const Home = () => {
 
       {/* ── RECURRING PROMPT ── */}
       {showRecurringPrompt && (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
-          <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[32px] p-8 shadow-2xl animate-slide-up">
+        <div className="fixed inset-0 z-200 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-4xl p-8 shadow-2xl animate-slide-up">
             <div className="flex flex-col items-center text-center mb-8">
               <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
                 <Icon name="autorenew" size={32} className="text-[#00654b]" />
@@ -319,14 +319,14 @@ const Home = () => {
 
       {/* ── NEA ALERT ── */}
       {showNEAAlert && (
-        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
-          <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[32px] p-8 shadow-2xl animate-slide-up">
+        <div className="fixed inset-0 z-200 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
+          <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-4xl p-8 shadow-2xl animate-slide-up">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-extrabold text-gray-900">Payment Alert</h2>
               <button onClick={() => setShowNEAAlert(false)} className="p-2 bg-gray-50 rounded-full"><Icon name="close" size={20} /></button>
             </div>
             <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 mb-6">
-              <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center overflow-hidden p-2 flex-shrink-0 border border-amber-100">
+              <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center overflow-hidden p-2 shrink-0 border border-amber-100">
                 <img src={neaImg} alt="NEA" className="w-full h-full object-contain" />
               </div>
               <div>
@@ -373,12 +373,12 @@ const Home = () => {
             <IconButton icon="search" />
             <IconButton icon="notifications" hasBadge onClick={handleBellClick} />
             {showDropdown && (
-              <div className="absolute right-0 top-12 w-72 bg-white rounded-[32px] shadow-2xl border border-gray-100 z-[60] overflow-hidden animate-dropdown-reveal origin-top-right">
+              <div className="absolute right-0 top-12 w-72 bg-white rounded-4xl shadow-2xl border border-gray-100 z-60 overflow-hidden animate-dropdown-reveal origin-top-right">
                 <div className="p-5 border-b border-gray-50 flex justify-between items-center bg-[#f7faf9]">
                   <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Alerts</span>
                   <button onClick={() => { setShowFullNotifications(true); setShowDropdown(false); }} className="text-[10px] font-bold text-[#00654b] underline">View All</button>
                 </div>
-                <div className="min-h-[120px] max-h-80 overflow-y-auto">
+                <div className="min-h-30 max-h-80 overflow-y-auto">
                   {isSearchingNotifications ? (
                     <div className="p-10 flex flex-col items-center gap-3">
                       <div className="w-6 h-6 border-2 border-[#00654b] border-t-transparent rounded-full animate-spin" />
@@ -386,23 +386,23 @@ const Home = () => {
                     </div>
                   ) : (
                     <div className="p-3 space-y-3">
-                      <div onClick={openLBEFPayment} className="flex items-center gap-4 p-4 bg-red-50 hover:bg-red-100 rounded-[24px] transition-all cursor-pointer border border-red-100 animate-stagger-1">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1"><img src={lbefImg} alt="LBEF" className="w-full h-full object-contain" /></div>
+                      <div onClick={openLBEFPayment} className="flex items-center gap-4 p-4 bg-red-50 hover:bg-red-100 rounded-3xl transition-all cursor-pointer border border-red-100 animate-stagger-1">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-white p-1"><img src={lbefImg} alt="LBEF" className="w-full h-full object-contain" /></div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-extrabold text-red-700">LBEF College</p>
                           <p className="text-[11px] text-red-600 font-medium truncate">You have 100k due</p>
                         </div>
                         <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                       </div>
-                      <div className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-[24px] transition-colors animate-stagger-2">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-gray-100"><img src={vianetImg} alt="Vianet" className="w-full h-full object-contain" /></div>
+                      <div className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-3xl transition-colors animate-stagger-2">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-white p-1 border border-gray-100"><img src={vianetImg} alt="Vianet" className="w-full h-full object-contain" /></div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-bold text-gray-800">Vianet Fiber</p>
                           <p className="text-[11px] text-gray-500 font-medium">Monthly bill is due</p>
                         </div>
                       </div>
-                      <div onClick={openNEAAlert} className="flex items-center gap-4 p-4 bg-amber-50 hover:bg-amber-100 rounded-[24px] transition-all cursor-pointer border border-amber-100 animate-stagger-3">
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-amber-100"><img src={neaImg} alt="NEA" className="w-full h-full object-contain" /></div>
+                      <div onClick={openNEAAlert} className="flex items-center gap-4 p-4 bg-amber-50 hover:bg-amber-100 rounded-3xl transition-all cursor-pointer border border-amber-100 animate-stagger-3">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-white p-1 border border-amber-100"><img src={neaImg} alt="NEA" className="w-full h-full object-contain" /></div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-extrabold text-amber-700">NEA Electricity</p>
                           <p className="text-[11px] text-amber-600 font-medium truncate">Scheduled payment failed — low balance</p>
@@ -489,7 +489,7 @@ const Home = () => {
             <div className="relative w-full h-32 rounded-3xl overflow-hidden shadow-sm group">
               <img alt="Promo" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 src="https://images.unsplash.com/photo-1616077168079-7e09a677fb2c?auto=format&fit=crop&q=80&w=800" />
-              <div className="absolute inset-0 bg-gradient-to-r from-[#00654b]/95 via-[#00654b]/70 to-transparent flex flex-col justify-center px-8">
+              <div className="absolute inset-0 bg-linear-to-r from-[#00654b]/95 via-[#00654b]/70 to-transparent flex flex-col justify-center px-8">
                 <span className="bg-white/20 w-fit px-2 py-0.5 rounded text-[10px] text-white font-bold mb-2 uppercase tracking-widest">Limited Offer</span>
                 <p className="text-white text-xl font-extrabold">Flat 10% Cashback</p>
                 <p className="text-white/80 text-xs font-medium">On your first Vianet bill payment</p>
@@ -537,8 +537,8 @@ const QuickAction = ({ icon, label, fill = 0 }) => (
 );
 
 const ScheduleCard = ({ img, title, subtitle, amount, bg }) => (
-  <div className="min-w-[240px] bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4 active:scale-95 transition-transform">
-    <div className={`w-14 h-14 ${bg} rounded-xl flex items-center justify-center overflow-hidden p-2 flex-shrink-0`}>
+  <div className="min-w-60 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4 active:scale-95 transition-transform">
+    <div className={`w-14 h-14 ${bg} rounded-xl flex items-center justify-center overflow-hidden p-2 shrink-0`}>
       <img src={img} alt={title} className="w-full h-full object-contain" />
     </div>
     <div className="overflow-hidden">
