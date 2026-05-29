@@ -23,7 +23,7 @@ const Notification = ({ onClose }) => {
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[100] flex flex-col bg-[#f7faf9] animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-100 flex flex-col bg-[#f7faf9] animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 bg-white border-b border-gray-100">
         <div className="flex items-center gap-3">
@@ -51,7 +51,7 @@ const Notification = ({ onClose }) => {
             key={item.id} 
             className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex gap-4 animate-in slide-in-from-bottom-4 duration-500"
           >
-            <div className={`w-12 h-12 ${item.bg} ${item.color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+            <div className={`w-12 h-12 ${item.bg} ${item.color} rounded-xl flex items-center justify-center shrink-0`}>
               <Icon name={item.icon} size={24} />
             </div>
             <div className="flex-1">

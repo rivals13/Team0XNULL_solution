@@ -119,7 +119,7 @@ export default function HealthScore() {
           {metrics.map((m) => (
             <div key={m.label} className="bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
               <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-xl ${m.bg} flex items-center justify-center flex-shrink-0`}>
+                <div className={`w-10 h-10 rounded-xl ${m.bg} flex items-center justify-center shrink-0`}>
                   <Icon name={m.icon} size={20} className={m.iconColor} />
                 </div>
                 <div className="flex-1">
@@ -151,7 +151,7 @@ export default function HealthScore() {
         <div className="flex flex-col gap-2">
           {tips.map((tip, i) => (
             <div key={i} className="flex items-start gap-3 bg-white rounded-2xl border border-gray-100 p-4 shadow-sm">
-              <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-9 h-9 rounded-xl bg-green-50 flex items-center justify-center shrink-0 mt-0.5">
                 <Icon name={tip.icon} size={18} className="text-green-600" />
               </div>
               <p className="text-sm text-gray-600 font-medium leading-snug">{tip.text}</p>

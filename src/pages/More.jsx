@@ -83,7 +83,7 @@ export default function More() {
           style={{ background: "linear-gradient(135deg,#00654b,#008a60)", boxShadow: "0 8px 24px -4px rgba(0,0,0,0.12)" }}
         >
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-extrabold border-2 border-white/30 flex-shrink-0"
+            className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-extrabold border-2 border-white/30 shrink-0"
             style={{ background: "rgba(255,255,255,0.2)" }}
           >
             S
@@ -138,7 +138,7 @@ export default function More() {
                   onClick={() => handleItem(item)}
                   className={`w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors ${idx !== 0 ? "border-t border-gray-100" : ""}`}
                 >
-                  <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center flex-shrink-0`}>
+                  <div className={`w-9 h-9 rounded-xl ${item.iconBg} flex items-center justify-center shrink-0`}>
                     <Icon name={item.icon} size={18} className={item.iconColor} />
                   </div>
                   <p className="flex-1 text-left text-sm font-semibold" style={{ color: "#141b2b" }}>{item.label}</p>
@@ -154,7 +154,7 @@ export default function More() {
           onClick={() => setShowLogoutModal(true)}
           className="w-full flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-4 active:scale-95 transition-all"
         >
-          <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
             <Icon name="logout" size={18} className="text-red-500" />
           </div>
           <p className="flex-1 text-left text-sm font-bold text-red-500">Logout</p>
@@ -186,7 +186,7 @@ export default function More() {
 
       {/* Logout Modal */}
       {showLogoutModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] px-6 animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-100 px-6 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-6 w-full max-w-sm animate-in zoom-in-95 duration-200">
             <div className="flex flex-col items-center text-center mb-5">
               <div className="w-14 h-14 rounded-2xl bg-red-50 flex items-center justify-center mb-4">

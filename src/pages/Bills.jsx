@@ -98,19 +98,19 @@ export default function Bills() {
               style={{ borderColor: bill.urgent && !paid ? "rgba(239,68,68,0.3)" : "#e2e8f0" }}
             >
               <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-xl ${bill.iconBg} flex items-center justify-center flex-shrink-0`}>
+                <div className={`w-12 h-12 rounded-xl ${bill.iconBg} flex items-center justify-center shrink-0`}>
                   <Icon name={bill.icon} size={22} className={bill.iconColor} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-bold truncate" style={{ color: "#141b2b" }}>{bill.name}</p>
                     {bill.urgent && !paid && (
-                      <span className="flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 uppercase tracking-wider">
+                      <span className="shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 uppercase tracking-wider">
                         Urgent
                       </span>
                     )}
                     {paid && (
-                      <span className="flex-shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-600 uppercase tracking-wider">
+                      <span className="shrink-0 text-[9px] font-bold px-2 py-0.5 rounded-full bg-green-50 text-green-600 uppercase tracking-wider">
                         Paid
                       </span>
                     )}
@@ -165,8 +165,8 @@ export default function Bills() {
 
       {/* Payment Modal */}
       {modal && (
-        <div className="fixed inset-0 bg-black/60 flex items-end z-[100] animate-in fade-in duration-200">
-          <div className="bg-white w-full rounded-t-[32px] p-6 pb-10 animate-in slide-in-from-bottom duration-300">
+        <div className="fixed inset-0 bg-black/60 flex items-end z-100 animate-in fade-in duration-200">
+          <div className="bg-white w-full rounded-t-4x] p-6 pb-10 animate-in slide-in-from-bottom duration-300">
             <div className="w-10 h-1 bg-gray-300 rounded-full mx-auto mb-6" />
             <h2 className="text-xl font-extrabold mb-1" style={{ color: "#141b2b" }}>Confirm Payment</h2>
             <p className="text-sm text-gray-500 mb-5">You are about to pay the following bill</p>

@@ -96,7 +96,7 @@ export default function Statement() {
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
-            className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all active:scale-95"
+            className="shrink-0 px-4 py-2 rounded-full text-sm font-semibold transition-all active:scale-95"
             style={
               activeTab === tab
                 ? { background: "#00654b", color: "#fff" }
@@ -121,14 +121,14 @@ export default function Statement() {
             key={tx.id}
             className="flex items-center gap-4 bg-white rounded-2xl border border-gray-100 px-4 py-3.5 shadow-sm"
           >
-            <div className={`w-11 h-11 rounded-xl ${tx.iconBg} flex items-center justify-center flex-shrink-0`}>
+            <div className={`w-11 h-11 rounded-xl ${tx.iconBg} flex items-center justify-center shrink-0`}>
               <Icon name={tx.icon} size={20} className={tx.iconColor} />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold truncate" style={{ color: "#141b2b" }}>{tx.name}</p>
               <p className="text-xs text-gray-400 mt-0.5">{tx.date}</p>
             </div>
-            <div className="text-right flex-shrink-0">
+            <div className="text-right shrink-0">
               <p className={`text-sm font-extrabold ${tx.amount > 0 ? "text-green-600" : "text-red-500"}`}>
                 {tx.amount > 0 ? "+" : ""}NPR {Math.abs(tx.amount).toLocaleString()}
               </p>

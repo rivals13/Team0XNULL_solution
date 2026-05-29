@@ -100,7 +100,7 @@ export default function PaySmart() {
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2 -mx-5 px-5" style={{ scrollbarWidth: "none" }}>
             {bills.map(b => (
-              <div key={b.id} className="min-w-[160px] rounded-2xl p-4 flex-shrink-0 bg-white border transition-transform active:scale-95 cursor-pointer"
+              <div key={b.id} className="min-w-40 rounded-2xl p-4 shrink-0 bg-white border transition-transform active:scale-95 cursor-pointer"
                 style={{ borderColor: "#e1e8fd", boxShadow: "0 2px 12px 0 rgba(0,0,0,0.05)" }}>
                 <div className={`w-10 h-10 rounded-xl ${b.iconBg} flex items-center justify-center mb-3`}>
                   <Icon name={b.icon} size={20} className={b.iconColor} />
@@ -135,7 +135,7 @@ export default function PaySmart() {
                     You pay NPR 1,000 every month. Set up auto-pay to avoid service interruptions.
                   </p>
                 </div>
-                <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
                   style={{ background: "rgba(0,101,75,0.1)" }}>
                   <Icon name="auto_awesome" size={22} style={{ color: "#00654b" }} className="text-green-800" />
                 </div>

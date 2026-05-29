@@ -12,11 +12,11 @@ const Footer = () => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <div className="fixed bottom-0 left-0 w-full bg-gray-100 border-t border-gray-300 shadow-lg">
+    <div className="fixed bottom-0 left-0 w-full bg-gray-100 border-t border-gray-300 shadow-lg z-50">
       <div className="flex justify-around items-center py-3 relative">
 
         {/* Home */}
-        <Link to="/" className="flex flex-col items-center">
+        <Link to="/" className="flex flex-col items-center cursor-pointer">
           <NavItem
             icon={<AiOutlineHome />}
             label="Home"
@@ -25,7 +25,10 @@ const Footer = () => {
         </Link>
 
         {/* Statement */}
-        <Link to="/statement" className="flex flex-col items-center">
+        <Link
+          to="/statement"
+          className="flex flex-col items-center cursor-pointer"
+        >
           <NavItem
             icon={<HiOutlineDocumentText />}
             label="Statement"
@@ -34,17 +37,21 @@ const Footer = () => {
         </Link>
 
         {/* Scan Button */}
-        <div className="absolute -top-6 flex flex-col items-center">
-          <div className="bg-green-700 p-4 rounded-full shadow-lg border-4 border-white">
+        <div className="absolute -top-6 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
+          <div className="bg-green-700 p-4 rounded-full shadow-lg border-4 border-white cursor-pointer pointer-events-auto hover:scale-105 transition-transform duration-300">
             <IoQrCode size={26} className="text-white" />
           </div>
+
           <span className="text-xs mt-1 font-medium text-gray-700">
             Scan & Pay
           </span>
         </div>
 
         {/* Schedules */}
-        <Link to="/schedules" className="flex flex-col items-center">
+        <Link
+          to="/schedules"
+          className="flex flex-col items-center cursor-pointer"
+        >
           <NavItem
             icon={<FiCalendar />}
             label="Schedules"
@@ -53,7 +60,10 @@ const Footer = () => {
         </Link>
 
         {/* More */}
-        <Link to="/more" className="flex flex-col items-center">
+        <Link
+          to="/more"
+          className="flex flex-col items-center cursor-pointer"
+        >
           <NavItem
             icon={<BsGrid />}
             label="More"
@@ -69,7 +79,7 @@ const Footer = () => {
 function NavItem({ icon, label, active }) {
   return (
     <div className="flex flex-col items-center cursor-pointer">
-      
+
       {/* ICON */}
       <div
         className={`transition-all duration-300 ease-in-out transform ${

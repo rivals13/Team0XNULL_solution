@@ -123,7 +123,7 @@ export default function PaySmart() {
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2 -mx-5 px-5 scrollbar-hide">
             {bills.map((b) => (
-              <div key={b.id} className="min-w-[160px] rounded-2xl p-4 flex-shrink-0 bg-white border transition-transform active:scale-95 cursor-pointer"
+              <div key={b.id} className="min-w-40 rounded-2xl p-4 shrink-0 bg-white border transition-transform active:scale-95 cursor-pointer"
                 style={{ borderColor: "#e1e8fd", boxShadow: "0 2px 12px 0 rgba(0,0,0,0.05)" }}
               >
                 <div className={`w-10 h-10 rounded-xl ${b.iconBg} flex items-center justify-center mb-3 overflow-hidden p-1.5`}>
@@ -151,7 +151,7 @@ export default function PaySmart() {
         </section>
 
         {/* Smart Suggestions */}
-        <section className="pb-4 min-h-[140px]">
+        <section className="pb-4 min-h-35">
           <h2 className="text-xl font-semibold mb-4">Smart Suggestions</h2>
           
           {!dismissed ? (
@@ -177,7 +177,7 @@ export default function PaySmart() {
                       Would you like to automate this to avoid any service interruptions? We can handle it for you.
                     </p>
                   </div>
-                  <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 p-2"
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 p-2"
                     style={{ background: "rgba(0,101,75,0.1)" }}>
                     <img src={vianetImg} alt="Vianet AI" className="w-full h-full object-contain opacity-90" />
                   </div>
@@ -226,8 +226,8 @@ export default function PaySmart() {
 
       {/* Modal */}
       {showSetupModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-end z-[100] animate-in fade-in duration-300">
-          <div className="bg-white w-full rounded-t-[32px] max-h-[90vh] overflow-auto slide-in-from-bottom duration-500 pb-10">
+        <div className="fixed inset-0 bg-black/60 flex items-end z-100 animate-in fade-in duration-300">
+          <div className="bg-white w-full rounded-t-4xl max-h-[90vh] overflow-auto slide-in-from-bottom duration-500 pb-10">
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold">Auto-pay Setup</h2>

@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Notification from "./Notification";
 
-// Image Assets
-import vianetImg from "../assets/vianet.png";
-import neaImg from "../assets/nea.jpg";
-import lbefImg from "../assets/lbef.jpg";
+import vianetImg  from "../assets/vianet.png";
+import neaImg     from "../assets/nea.jpg";
+import esewaLogo  from "../assets/images.jpeg";
+import lbefImg   from "../assets/lbef.jpg";
 
 const Icon = ({ name, fill = 0, size = 24, className = "" }) => (
   <span
@@ -20,47 +20,40 @@ const Icon = ({ name, fill = 0, size = 24, className = "" }) => (
 );
 
 const Home = () => {
-  const navigate = useNavigate();
-  const location = useLocation();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-  // WALKTHROUGH STATES
-  const [showWalkthrough, setShowWalkthrough] = useState(true);
-  const [walkthroughStep, setWalkthroughStep] = useState("intro");
-  const [selectedUtility, setSelectedUtility] = useState(null);
-  const [showExitConfirm, setShowExitConfirm] = useState(false);
+  // Walkthrough - shows ONLY on first visit using localStorage
+  const [showWalkthrough,    setShowWalkthrough]    = useState(() => {
+    const hasSeenWalkthrough = localStorage.getItem("hasSeenWalkthrough");
+    return !hasSeenWalkthrough; // show only if NEVER seen before
+  });
+  const [walkthroughStep,    setWalkthroughStep]    = useState("intro");
+  const [selectedUtility,    setSelectedUtility]    = useState(null);
+  const [showExitConfirm,    setShowExitConfirm]    = useState(false);
 
-  // DASHBOARD STATES
-  const [isLoadingUtilities, setIsLoadingUtilities] = useState(true);
-  const [showFullNotifications, setShowFullNotifications] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [isSearchingNotifications, setIsSearchingNotifications] =
-    useState(false);
-
-  const [showPaymentPortal, setShowPaymentPortal] = useState(false);
-  const [paymentDetails, setPaymentDetails] = useState(null);
-
-  // NEW STATES
-  const [showRecurringPrompt, setShowRecurringPrompt] = useState(false);
-  const [showPaidConfirmation, setShowPaidConfirmation] = useState(false);
-  const [paidToName, setPaidToName] = useState("");
-  const [showNEAAlert, setShowNEAAlert] = useState(false);
+  // Dashboard
+  const [isLoadingUtilities,        setIsLoadingUtilities]        = useState(true);
+  const [showFullNotifications,     setShowFullNotifications]     = useState(false);
+  const [showDropdown,              setShowDropdown]              = useState(false);
+  const [isSearchingNotifications,  setIsSearchingNotifications]  = useState(false);
+  const [showPaymentPortal,         setShowPaymentPortal]         = useState(false);
+  const [paymentDetails,            setPaymentDetails]            = useState(null);
+  const [showRecurringPrompt,       setShowRecurringPrompt]       = useState(false);
+  const [showPaidConfirmation,      setShowPaidConfirmation]      = useState(false);
+  const [paidToName,                setPaidToName]                = useState("");
+  const [showNEAAlert,              setShowNEAAlert]              = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoadingUtilities(false);
-    }, 2000);
-
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setIsLoadingUtilities(false), 2000);
+    return () => clearTimeout(t);
   }, []);
 
   const handleBellClick = () => {
     if (!showDropdown) {
       setShowDropdown(true);
       setIsSearchingNotifications(true);
-
-      setTimeout(() => {
-        setIsSearchingNotifications(false);
-      }, 1200);
+      setTimeout(() => setIsSearchingNotifications(false), 1200);
     } else {
       setShowDropdown(false);
     }
@@ -70,205 +63,102 @@ const Home = () => {
     if (walkthroughStep !== "intro") {
       setShowExitConfirm(true);
     } else {
+      localStorage.setItem("hasSeenWalkthrough", "true");
       setShowWalkthrough(false);
     }
   };
 
   const finishSetup = () => {
+    localStorage.setItem("hasSeenWalkthrough", "true");
     setShowWalkthrough(false);
     setWalkthroughStep("intro");
   };
 
   const openLBEFPayment = () => {
-    setPaymentDetails({
-      name: "LBEF College",
-      id: "STU-9841-2024",
-      amount: "100,000",
-      type: "Semester Fee",
-      icon: lbefImg,
-    });
-
+    setPaymentDetails({ name: "LBEF College", id: "STU-9841-2024", amount: "100,000", type: "Semester Fee", icon: lbefImg });
     setShowDropdown(false);
     setShowPaymentPortal(true);
   };
 
-  // NEW: Handle Pay Now — show paid confirmation then recurring prompt
   const handlePayNow = () => {
     const name = paymentDetails?.name;
     setShowPaymentPortal(false);
     setPaidToName(name);
     setShowPaidConfirmation(true);
-
-    setTimeout(() => {
-      setShowPaidConfirmation(false);
-      setShowRecurringPrompt(true);
-    }, 2000);
+    setTimeout(() => { setShowPaidConfirmation(false); setShowRecurringPrompt(true); }, 2000);
   };
 
-  // NEW: Handle NEA notification click
-  const openNEAAlert = () => {
-    setShowDropdown(false);
-    setShowNEAAlert(true);
-  };
+  const openNEAAlert = () => { setShowDropdown(false); setShowNEAAlert(true); };
 
   return (
     <div className="bg-[#f7faf9] text-[#181c1c] min-h-screen pb-28 font-sans relative">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');
-
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-
-        @keyframes slideUp {
-          from {
-            transform: translateY(100%);
-          }
-          to {
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes dropdownReveal {
-          from {
-            opacity: 0;
-            transform: translateY(-8px) scale(0.98);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        @keyframes itemSlideIn {
-          from {
-            opacity: 0;
-            transform: translateY(12px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-          }
-          to {
-            opacity: 1;
-          }
-        }
-
-        .animate-slide-up {
-          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-
-        .animate-dropdown-reveal {
-          animation: dropdownReveal 0.3s ease-out forwards;
-        }
-
-        .animate-stagger-1 {
-          animation: itemSlideIn 0.5s ease-out 0.1s both;
-        }
-
-        .animate-stagger-2 {
-          animation: itemSlideIn 0.5s ease-out 0.25s both;
-        }
-
-        .animate-stagger-3 {
-          animation: itemSlideIn 0.5s ease-out 0.4s both;
-        }
-
-        .animate-fade-in {
-          animation: fadeIn 0.4s ease-out forwards;
-        }
+        .scrollbar-hide::-webkit-scrollbar{display:none}.scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}
+        @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        @keyframes dropdownReveal{from{opacity:0;transform:translateY(-8px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+        @keyframes itemSlideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        .animate-slide-up{animation:slideUp 0.4s cubic-bezier(0.16,1,0.3,1) forwards}
+        .animate-dropdown-reveal{animation:dropdownReveal 0.3s ease-out forwards}
+        .animate-stagger-1{animation:itemSlideIn 0.5s ease-out 0.1s both}
+        .animate-stagger-2{animation:itemSlideIn 0.5s ease-out 0.25s both}
+        .animate-stagger-3{animation:itemSlideIn 0.5s ease-out 0.4s both}
+        .animate-fade-in{animation:fadeIn 0.4s ease-out forwards}
       `}</style>
 
-      {/* WALKTHROUGH */}
+      {/* ── WALKTHROUGH ── */}
       {showWalkthrough && (
         <div className="fixed inset-0 z-[300] bg-white flex flex-col items-center justify-center animate-fade-in p-6">
-
-          {/* CLOSE BUTTON */}
           <header className="absolute top-6 right-6 z-20">
-            <button
-              onClick={handleCloseSetup}
-              className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 active:scale-90 transition-all"
-            >
+            <button onClick={handleCloseSetup} className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 active:scale-90 transition-all">
               <Icon name="close" className="text-gray-600" size={20} />
             </button>
           </header>
 
-          {/* STEP 1 */}
           {walkthroughStep === "intro" && (
             <div className="max-w-md w-full flex flex-col items-center animate-fade-in">
-
               <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
-                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#a1f3d1] opacity-30 blur-3xl"></div>
-                <div className="absolute top-1/2 -left-32 w-[500px] h-[500px] rounded-full bg-[#ffdf9f] opacity-20 blur-3xl"></div>
+                <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#a1f3d1] opacity-30 blur-3xl" />
+                <div className="absolute top-1/2 -left-32 w-[500px] h-[500px] rounded-full bg-[#ffdf9f] opacity-20 blur-3xl" />
               </div>
-
               <div className="relative h-64 w-full flex items-center justify-center mb-12 z-10">
-                <div className="w-48 h-72 bg-gradient-to-br from-[#00654b] to-[#004b37] rounded-[32px] shadow-2xl rotate-[-10deg] flex flex-col p-6 text-white relative">
+                <div className="w-48 h-72 bg-gradient-to-br from-[#00654b] to-[#004b37] rounded-[32px] shadow-2xl rotate-[-10deg] flex flex-col p-6 text-white">
                   <div className="flex justify-between items-start mb-12">
-                    <div className="w-10 h-8 bg-yellow-400/80 rounded-md"></div>
+                    <div className="w-10 h-8 bg-yellow-400/80 rounded-md" />
                     <Icon name="contactless" />
                   </div>
-
                   <div className="mt-auto">
-                    <div className="h-3 w-32 bg-white/20 rounded mb-2"></div>
-                    <div className="h-3 w-20 bg-white/20 rounded"></div>
+                    <div className="h-3 w-32 bg-white/20 rounded mb-2" />
+                    <div className="h-3 w-20 bg-white/20 rounded" />
                   </div>
                 </div>
-
-                <div className="absolute top-10 right-4 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-3 animate-bounce shadow-emerald-200/50">
+                <div className="absolute top-10 right-4 bg-white p-4 rounded-2xl shadow-xl border border-gray-100 flex items-center gap-3 animate-bounce">
                   <div className="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">
-                    <Icon
-                      name="check"
-                      className="text-emerald-600"
-                      size={20}
-                    />
+                    <Icon name="check" className="text-emerald-600" size={20} />
                   </div>
-
                   <div>
-                    <div className="text-[10px] font-bold text-gray-400 uppercase">
-                      Automation
-                    </div>
-
-                    <div className="text-xs font-black text-emerald-700">
-                      ACTIVE
-                    </div>
+                    <div className="text-[10px] font-bold text-gray-400 uppercase">Automation</div>
+                    <div className="text-xs font-black text-emerald-700">ACTIVE</div>
                   </div>
                 </div>
               </div>
-
               <div className="text-center z-10">
                 <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 leading-tight mb-4">
-                  Smart Bills, <br />
-                  <span className="text-[#00654b]">Zero Stress.</span>
+                  Smart Bills,<br /><span className="text-[#00654b]">Zero Stress.</span>
                 </h1>
-
                 <p className="text-gray-500 text-sm font-medium mb-10 leading-relaxed px-4">
-                  Automate your utility cycles and get notified before
-                  deadlines. Save time and avoid late fees instantly.
+                  Automate your utility cycles and get notified before deadlines. Save time and avoid late fees instantly.
                 </p>
-
                 <div className="space-y-4">
-                  <button
-                    onClick={() => setWalkthroughStep("select")}
-                    className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] transition-all"
-                  >
-                    Get Started
-                    <Icon name="arrow_forward" />
+                  <button onClick={() => setWalkthroughStep("select")}
+                    className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] transition-all">
+                    Get Started <Icon name="arrow_forward" />
                   </button>
-
-                  <button
-                    onClick={() => setShowWalkthrough(false)}
+                  <button 
+                    onClick={() => {
+                      localStorage.setItem("hasSeenWalkthrough", "true");
+                      setShowWalkthrough(false);
+                    }} 
                     className="w-full py-2 text-sm font-bold text-gray-400"
                   >
                     Skip for now
@@ -278,123 +168,53 @@ const Home = () => {
             </div>
           )}
 
-          {/* STEP 2 */}
           {walkthroughStep === "select" && (
             <div className="max-w-md w-full animate-slide-up">
-              <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
-                What do you pay?
-              </h2>
-
-              <p className="text-gray-500 text-sm mb-8">
-                Select a utility to set up your first smart bill.
-              </p>
-
+              <h2 className="text-2xl font-extrabold text-gray-900 mb-2">What do you pay?</h2>
+              <p className="text-gray-500 text-sm mb-8">Select a utility to set up your first smart bill.</p>
               <div className="grid grid-cols-2 gap-4 mb-10">
-                {[
-                  "Electricity",
-                  "Water",
-                  "Internet",
-                  "Television",
-                ].map((item) => (
-                  <button
-                    key={item}
-                    onClick={() => {
-                      setSelectedUtility(item);
-                      setWalkthroughStep("confirm");
-                    }}
-                    className="p-6 rounded-3xl border-2 border-gray-100 bg-gray-50 flex flex-col items-center gap-3 hover:border-[#00654b] hover:bg-emerald-50 transition-all active:scale-95"
-                  >
-                    <Icon
-                      name={
-                        item === "Electricity"
-                          ? "bolt"
-                          : item === "Water"
-                          ? "water_drop"
-                          : item === "Internet"
-                          ? "wifi"
-                          : "tv"
-                      }
-                      size={32}
-                      className="text-[#00654b]"
-                    />
-
-                    <span className="font-bold text-gray-700">
-                      {item}
-                    </span>
+                {["Electricity","Water","Internet","Television"].map(item => (
+                  <button key={item} onClick={() => { setSelectedUtility(item); setWalkthroughStep("confirm"); }}
+                    className="p-6 rounded-3xl border-2 border-gray-100 bg-gray-50 flex flex-col items-center gap-3 hover:border-[#00654b] hover:bg-emerald-50 transition-all active:scale-95">
+                    <Icon name={item==="Electricity"?"bolt":item==="Water"?"water_drop":item==="Internet"?"wifi":"tv"} size={32} className="text-[#00654b]" />
+                    <span className="font-bold text-gray-700">{item}</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* STEP 3 */}
           {walkthroughStep === "confirm" && (
             <div className="max-w-md w-full text-center animate-slide-up">
               <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Icon
-                  name="edit_document"
-                  className="text-[#00654b]"
-                  size={32}
-                />
+                <Icon name="edit_document" className="text-[#00654b]" size={32} />
               </div>
-
-              <h2 className="text-2xl font-extrabold text-gray-900 mb-4">
-                Add {selectedUtility} details?
-              </h2>
-
-              <p className="text-gray-500 text-sm mb-10 leading-relaxed">
-                Adding details now lets us track your bills and notify you
-                automatically.
-              </p>
-
+              <h2 className="text-2xl font-extrabold text-gray-900 mb-4">Add {selectedUtility} details?</h2>
+              <p className="text-gray-500 text-sm mb-10 leading-relaxed">Adding details lets us track your bills and notify you automatically.</p>
               <div className="space-y-4">
-                <button
-                  onClick={() => setWalkthroughStep("details")}
-                  className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold shadow-lg"
-                >
-                  Yes, add details
-                </button>
-
-                <button
-                  onClick={finishSetup}
-                  className="w-full h-16 bg-gray-100 text-gray-600 rounded-2xl font-bold"
-                >
-                  No, do it later
-                </button>
+                <button onClick={() => setWalkthroughStep("details")} className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold shadow-lg">Yes, add details</button>
+                <button onClick={finishSetup} className="w-full h-16 bg-gray-100 text-gray-600 rounded-2xl font-bold">No, do it later</button>
               </div>
             </div>
           )}
 
-          {/* STEP 4 */}
           {walkthroughStep === "details" && (
             <div className="max-w-md w-full animate-slide-up">
-              <h2 className="text-2xl font-extrabold text-gray-900 mb-2">
-                {selectedUtility} Account
-              </h2>
-
-              <p className="text-gray-500 text-sm mb-8">
-                Enter your customer ID or account number.
-              </p>
-
+              <h2 className="text-2xl font-extrabold text-gray-900 mb-2">{selectedUtility} Account</h2>
+              <p className="text-gray-500 text-sm mb-8">Enter your customer ID or account number.</p>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2">
-                    Customer ID / SC No.
-                  </label>
-
-                  <input
-                    type="text"
-                    placeholder="e.g. 10293485"
-                    className="w-full h-16 bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 font-bold focus:border-[#00654b] outline-none transition-all"
-                  />
+                  <label className="text-[10px] font-black uppercase text-gray-400 tracking-widest ml-2">Customer ID / SC No.</label>
+                  <input type="text" placeholder="e.g. 10293485"
+                    className="w-full h-16 bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 font-bold focus:border-[#00654b] outline-none transition-all" />
                 </div>
-
-                <button
-                  onClick={() => {
-                    alert("Setup Complete!");
-                    finishSetup();
+                <button 
+                  onClick={() => { 
+                    localStorage.setItem("hasSeenWalkthrough", "true");
+                    alert("Setup Complete!"); 
+                    finishSetup(); 
                   }}
-                  className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold shadow-xl shadow-emerald-900/20"
+                  className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold shadow-xl"
                 >
                   Save and Complete
                 </button>
@@ -402,35 +222,23 @@ const Home = () => {
             </div>
           )}
 
-          {/* EXIT CONFIRM */}
           {showExitConfirm && (
             <div className="fixed inset-0 z-[400] bg-black/60 backdrop-blur-sm flex items-center justify-center p-6">
               <div className="bg-white rounded-[32px] p-8 w-full max-w-xs text-center animate-slide-up">
-                <h3 className="text-lg font-extrabold text-gray-900 mb-2">
-                  Quit Setup?
-                </h3>
-
-                <p className="text-sm text-gray-500 mb-8">
-                  Your progress won't be saved. Are you sure?
-                </p>
-
+                <h3 className="text-lg font-extrabold text-gray-900 mb-2">Quit Setup?</h3>
+                <p className="text-sm text-gray-500 mb-8">Your progress won't be saved. Are you sure?</p>
                 <div className="flex flex-col gap-3">
-                  <button
-                    onClick={() => {
-                      setShowExitConfirm(false);
-                      setShowWalkthrough(false);
-                    }}
+                  <button 
+                    onClick={() => { 
+                      localStorage.setItem("hasSeenWalkthrough", "true");
+                      setShowExitConfirm(false); 
+                      setShowWalkthrough(false); 
+                    }} 
                     className="py-4 bg-red-50 text-red-600 rounded-2xl font-bold"
                   >
                     Yes, Quit
                   </button>
-
-                  <button
-                    onClick={() => setShowExitConfirm(false)}
-                    className="py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold"
-                  >
-                    Continue Setup
-                  </button>
+                  <button onClick={() => setShowExitConfirm(false)} className="py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold">Continue Setup</button>
                 </div>
               </div>
             </div>
@@ -438,78 +246,38 @@ const Home = () => {
         </div>
       )}
 
-      {/* PAYMENT PORTAL */}
+      {/* ── PAYMENT PORTAL ── */}
       {showPaymentPortal && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
           <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[32px] p-8 shadow-2xl animate-slide-up">
-
             <div className="flex justify-between items-center mb-8">
-              <h2 className="text-xl font-extrabold text-gray-900">
-                Payment Portal
-              </h2>
-
-              <button
-                onClick={() => setShowPaymentPortal(false)}
-                className="p-2 bg-gray-50 rounded-full"
-              >
-                <Icon name="close" size={20} />
-              </button>
+              <h2 className="text-xl font-extrabold text-gray-900">Payment Portal</h2>
+              <button onClick={() => setShowPaymentPortal(false)} className="p-2 bg-gray-50 rounded-full"><Icon name="close" size={20} /></button>
             </div>
-
             <div className="flex flex-col items-center mb-8">
               <div className="w-20 h-20 bg-gray-50 rounded-3xl p-3 border border-gray-100 mb-4 shadow-inner">
-                <img
-                  src={paymentDetails?.icon}
-                  alt="Service"
-                  className="w-full h-full object-contain"
-                />
+                <img src={paymentDetails?.icon} alt="Service" className="w-full h-full object-contain" />
               </div>
-
-              <h3 className="text-lg font-bold text-[#00654b]">
-                {paymentDetails?.name}
-              </h3>
-
-              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">
-                ID: {paymentDetails?.id}
-              </p>
+              <h3 className="text-lg font-bold text-[#00654b]">{paymentDetails?.name}</h3>
+              <p className="text-xs text-gray-400 font-bold uppercase tracking-widest">ID: {paymentDetails?.id}</p>
             </div>
-
             <div className="space-y-4 mb-8">
               <div className="flex justify-between items-center p-5 bg-gray-50 rounded-3xl border border-gray-100">
-                <span className="text-sm font-semibold text-gray-400 uppercase tracking-tighter">
-                  Amount Due
-                </span>
-
-                <span className="text-xl font-black text-gray-900">
-                  NPR {paymentDetails?.amount}
-                </span>
+                <span className="text-sm font-semibold text-gray-400 uppercase tracking-tighter">Amount Due</span>
+                <span className="text-xl font-black text-gray-900">NPR {paymentDetails?.amount}</span>
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
-              <button
-                className="py-4 rounded-2xl border-2 border-[#00654b] text-[#00654b] font-bold active:scale-95 transition-all"
-                onClick={() => {
-                  alert("Scheduled Successfully!");
-                  setShowPaymentPortal(false);
-                }}
-              >
-                Schedule
-              </button>
-
-              {/* UPDATED: Pay Now triggers confirmation + recurring prompt */}
-              <button
-                className="py-4 rounded-2xl bg-[#00654b] text-white font-bold shadow-lg shadow-[#00654b]/30 active:scale-95 transition-all"
-                onClick={handlePayNow}
-              >
-                Pay Now
-              </button>
+              <button className="py-4 rounded-2xl border-2 border-[#00654b] text-[#00654b] font-bold active:scale-95 transition-all"
+                onClick={() => { alert("Scheduled Successfully!"); setShowPaymentPortal(false); }}>Schedule</button>
+              <button className="py-4 rounded-2xl bg-[#00654b] text-white font-bold shadow-lg active:scale-95 transition-all"
+                onClick={handlePayNow}>Pay Now</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* NEW: PAID CONFIRMATION TOAST */}
+      {/* ── PAID CONFIRMATION TOAST ── */}
       {showPaidConfirmation && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center pointer-events-none">
           <div className="bg-[#00654b] text-white px-8 py-5 rounded-[28px] shadow-2xl flex items-center gap-4 animate-slide-up">
@@ -524,7 +292,7 @@ const Home = () => {
         </div>
       )}
 
-      {/* NEW: RECURRING PAYMENT PROMPT */}
+      {/* ── RECURRING PROMPT ── */}
       {showRecurringPrompt && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
           <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[32px] p-8 shadow-2xl animate-slide-up">
@@ -532,252 +300,115 @@ const Home = () => {
               <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
                 <Icon name="autorenew" size={32} className="text-[#00654b]" />
               </div>
-              <h2 className="text-xl font-extrabold text-gray-900 mb-2">
-                Save as Recurring?
-              </h2>
+              <h2 className="text-xl font-extrabold text-gray-900 mb-2">Save as Recurring?</h2>
               <p className="text-sm text-gray-500 leading-relaxed">
-                Would you like to set up automatic payments for <span className="font-bold text-gray-800">{paidToName}</span> each semester? We'll notify you before each payment.
+                Would you like to set up automatic payments for <span className="font-bold text-gray-800">{paidToName}</span> each semester?
               </p>
             </div>
-
             <div className="flex flex-col gap-3">
-              <button
-                className="w-full py-4 bg-[#00654b] text-white rounded-2xl font-bold shadow-lg shadow-[#00654b]/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                onClick={() => {
-                  alert("Recurring payment saved!");
-                  setShowRecurringPrompt(false);
-                }}
-              >
-                <Icon name="autorenew" size={20} />
-                Yes, Set Up Auto-Pay
+              <button className="w-full py-4 bg-[#00654b] text-white rounded-2xl font-bold active:scale-95 transition-all flex items-center justify-center gap-2"
+                onClick={() => { alert("Recurring payment saved!"); setShowRecurringPrompt(false); }}>
+                <Icon name="autorenew" size={20} /> Yes, Set Up Auto-Pay
               </button>
-
-              <button
-                className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-all"
-                onClick={() => setShowRecurringPrompt(false)}
-              >
-                No, Thanks
-              </button>
+              <button className="w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-all"
+                onClick={() => setShowRecurringPrompt(false)}>No, Thanks</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* NEW: NEA INSUFFICIENT FUNDS ALERT */}
+      {/* ── NEA ALERT ── */}
       {showNEAAlert && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm p-0 sm:p-4">
           <div className="w-full max-w-md bg-white rounded-t-[40px] sm:rounded-[32px] p-8 shadow-2xl animate-slide-up">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-extrabold text-gray-900">
-                Payment Alert
-              </h2>
-              <button
-                onClick={() => setShowNEAAlert(false)}
-                className="p-2 bg-gray-50 rounded-full"
-              >
-                <Icon name="close" size={20} />
-              </button>
+              <h2 className="text-xl font-extrabold text-gray-900">Payment Alert</h2>
+              <button onClick={() => setShowNEAAlert(false)} className="p-2 bg-gray-50 rounded-full"><Icon name="close" size={20} /></button>
             </div>
-
             <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-100 mb-6">
               <div className="w-14 h-14 bg-white rounded-xl flex items-center justify-center overflow-hidden p-2 flex-shrink-0 border border-amber-100">
                 <img src={neaImg} alt="NEA" className="w-full h-full object-contain" />
               </div>
               <div>
                 <p className="text-sm font-extrabold text-amber-800">NEA Electricity</p>
-                <p className="text-xs text-amber-700 font-medium leading-relaxed mt-0.5">
-                  Scheduled payment failed — insufficient funds in your wallet.
-                </p>
+                <p className="text-xs text-amber-700 font-medium mt-0.5">Scheduled payment failed — insufficient funds.</p>
               </div>
             </div>
-
             <div className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex justify-between items-center mb-8">
               <span className="text-sm font-semibold text-gray-400 uppercase tracking-tighter">Amount Due</span>
               <span className="text-lg font-black text-gray-900">NPR 2,450</span>
             </div>
-
             <div className="flex flex-col gap-3">
-              <button
-                className="w-full py-4 bg-[#00654b] text-white rounded-2xl font-bold shadow-lg shadow-[#00654b]/20 active:scale-95 transition-all"
-                onClick={() => {
-                  alert("Redirecting to top up & pay...");
-                  setShowNEAAlert(false);
-                }}
-              >
-                Pay Now
-              </button>
-
+              <button className="w-full py-4 bg-[#00654b] text-white rounded-2xl font-bold active:scale-95 transition-all"
+                onClick={() => { alert("Redirecting to top up & pay..."); setShowNEAAlert(false); }}>Pay Now</button>
               <div className="grid grid-cols-2 gap-3">
-                <button
-                  className="py-4 bg-red-50 text-red-600 rounded-2xl font-bold active:scale-95 transition-all"
-                  onClick={() => {
-                    alert("Schedule cancelled.");
-                    setShowNEAAlert(false);
-                  }}
-                >
-                  Cancel Schedule
-                </button>
-
-                <button
-                  className="py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-all"
-                  onClick={() => {
-                    alert("We'll remind you later.");
-                    setShowNEAAlert(false);
-                  }}
-                >
-                  Remind Later
-                </button>
+                <button className="py-4 bg-red-50 text-red-600 rounded-2xl font-bold active:scale-95 transition-all"
+                  onClick={() => { alert("Schedule cancelled."); setShowNEAAlert(false); }}>Cancel Schedule</button>
+                <button className="py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold active:scale-95 transition-all"
+                  onClick={() => { alert("We'll remind you later."); setShowNEAAlert(false); }}>Remind Later</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* FULL NOTIFICATION */}
-      {showFullNotifications && (
-        <Notification
-          onClose={() => setShowFullNotifications(false)}
-        />
-      )}
+      {/* ── NOTIFICATIONS ── */}
+      {showFullNotifications && <Notification onClose={() => setShowFullNotifications(false)} />}
 
-      {/* MAIN DASHBOARD */}
+      {/* ── MAIN DASHBOARD ── */}
       <div className={showWalkthrough ? "hidden" : "block"}>
 
+        {/* Header */}
         <header className="sticky top-0 z-50 flex justify-between items-center px-5 py-3 bg-white border-b border-gray-100 shadow-sm">
-
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-[#92f6cf] overflow-hidden border-2 border-[#00654b]">
-              <img
-                src="https://i.pravatar.cc/100?img=12"
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
+              <img src="https://i.pravatar.cc/100?img=12" alt="Profile" className="w-full h-full object-cover" />
             </div>
-
             <div>
-              <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                Good morning,
-              </p>
-
-              <h1 className="text-lg font-bold text-[#00654b]">
-                Hi, Sansar
-              </h1>
+              <p className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Good morning,</p>
+              <h1 className="text-lg font-bold text-[#00654b]">Hi, Sansar</h1>
             </div>
           </div>
-
           <div className="flex gap-1 relative">
             <IconButton icon="search" />
-            <IconButton
-              icon="notifications"
-              hasBadge
-              onClick={handleBellClick}
-            />
-
+            <IconButton icon="notifications" hasBadge onClick={handleBellClick} />
             {showDropdown && (
               <div className="absolute right-0 top-12 w-72 bg-white rounded-[32px] shadow-2xl border border-gray-100 z-[60] overflow-hidden animate-dropdown-reveal origin-top-right">
-
                 <div className="p-5 border-b border-gray-50 flex justify-between items-center bg-[#f7faf9]">
-                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">
-                    Alerts
-                  </span>
-
-                  <button
-                    onClick={() => {
-                      setShowFullNotifications(true);
-                      setShowDropdown(false);
-                    }}
-                    className="text-[10px] font-bold text-[#00654b] underline"
-                  >
-                    View All
-                  </button>
+                  <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Alerts</span>
+                  <button onClick={() => { setShowFullNotifications(true); setShowDropdown(false); }} className="text-[10px] font-bold text-[#00654b] underline">View All</button>
                 </div>
-
                 <div className="min-h-[120px] max-h-80 overflow-y-auto">
                   {isSearchingNotifications ? (
                     <div className="p-10 flex flex-col items-center gap-3">
-                      <div className="w-6 h-6 border-2 border-[#00654b] border-t-transparent rounded-full animate-spin"></div>
-
-                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest animate-pulse">
-                        Loading...
-                      </p>
+                      <div className="w-6 h-6 border-2 border-[#00654b] border-t-transparent rounded-full animate-spin" />
+                      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest animate-pulse">Loading...</p>
                     </div>
                   ) : (
                     <div className="p-3 space-y-3">
-
-                      {/* LBEF notification — unchanged */}
-                      <div
-                        onClick={openLBEFPayment}
-                        className="flex items-center gap-4 p-4 bg-red-50 hover:bg-red-100 rounded-[24px] transition-all cursor-pointer border border-red-100 animate-stagger-1"
-                      >
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1">
-                          <img
-                            src={lbefImg}
-                            alt="LBEF"
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-
+                      <div onClick={openLBEFPayment} className="flex items-center gap-4 p-4 bg-red-50 hover:bg-red-100 rounded-[24px] transition-all cursor-pointer border border-red-100 animate-stagger-1">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1"><img src={lbefImg} alt="LBEF" className="w-full h-full object-contain" /></div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-extrabold text-red-700">
-                            LBEF College
-                          </p>
-
-                          <p className="text-[11px] text-red-600 font-medium truncate">
-                            You have 100k due
-                          </p>
+                          <p className="text-xs font-extrabold text-red-700">LBEF College</p>
+                          <p className="text-[11px] text-red-600 font-medium truncate">You have 100k due</p>
                         </div>
-
-                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
                       </div>
-
-                      {/* Vianet notification — unchanged */}
                       <div className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-[24px] transition-colors animate-stagger-2">
-
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-gray-100">
-                          <img
-                            src={vianetImg}
-                            alt="Vianet"
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-
+                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-gray-100"><img src={vianetImg} alt="Vianet" className="w-full h-full object-contain" /></div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-gray-800">
-                            Vianet Fiber
-                          </p>
-
-                          <p className="text-[11px] text-gray-500 font-medium">
-                            Monthly bill is due
-                          </p>
+                          <p className="text-xs font-bold text-gray-800">Vianet Fiber</p>
+                          <p className="text-[11px] text-gray-500 font-medium">Monthly bill is due</p>
                         </div>
                       </div>
-
-                      {/* NEW: NEA insufficient funds notification */}
-                      <div
-                        onClick={openNEAAlert}
-                        className="flex items-center gap-4 p-4 bg-amber-50 hover:bg-amber-100 rounded-[24px] transition-all cursor-pointer border border-amber-100 animate-stagger-3"
-                      >
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-amber-100">
-                          <img
-                            src={neaImg}
-                            alt="NEA"
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-
+                      <div onClick={openNEAAlert} className="flex items-center gap-4 p-4 bg-amber-50 hover:bg-amber-100 rounded-[24px] transition-all cursor-pointer border border-amber-100 animate-stagger-3">
+                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-amber-100"><img src={neaImg} alt="NEA" className="w-full h-full object-contain" /></div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-extrabold text-amber-700">
-                            NEA Electricity
-                          </p>
-
-                          <p className="text-[11px] text-amber-600 font-medium truncate">
-                            Scheduled payment failed — low balance
-                          </p>
+                          <p className="text-xs font-extrabold text-amber-700">NEA Electricity</p>
+                          <p className="text-[11px] text-amber-600 font-medium truncate">Scheduled payment failed — low balance</p>
                         </div>
-
-                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
                       </div>
-
                     </div>
                   )}
                 </div>
@@ -788,307 +419,252 @@ const Home = () => {
 
         <main className="px-5 pt-4 space-y-6">
 
+          {/* Balance Card */}
           <section className="relative bg-[#008060] rounded-2xl p-5 text-white overflow-hidden shadow-lg">
-
-            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
             <div className="flex justify-between items-start mb-6">
-
               <div>
-                <p className="text-xs opacity-80 flex items-center gap-1">
-                  NPR Balance
-                  <Icon name="visibility" size={14} />
-                </p>
-
-                <p className="text-2xl font-extrabold mt-1">
-                  NPR 12,450.75
-                </p>
+                <p className="text-xs opacity-80 flex items-center gap-1">NPR Balance <Icon name="visibility" size={14} /></p>
+                <p className="text-2xl font-extrabold mt-1">NPR 12,450.75</p>
               </div>
-
               <div className="text-right">
-                <p className="text-xs opacity-80 flex items-center justify-end gap-1 font-bold">
-                  <Icon
-                    name="stars"
-                    size={14}
-                    className="text-yellow-400"
-                    fill={1}
-                  />
-                  Fonepoints
-                </p>
-
-                <p className="text-lg font-bold text-yellow-400">
-                  2,840.00
-                </p>
+                <p className="text-xs opacity-80 flex items-center justify-end gap-1 font-bold"><Icon name="stars" size={14} className="text-yellow-400" fill={1} />Fonepoints</p>
+                <p className="text-lg font-bold text-yellow-400">2,840.00</p>
               </div>
             </div>
-
             <div className="flex justify-between bg-white/10 backdrop-blur-md rounded-xl p-3 border border-white/10 active:bg-white/20 transition-all">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Icon name="account_balance_wallet" size={20} />
-                Reward History
-              </div>
-
+              <div className="flex items-center gap-2 text-sm font-semibold"><Icon name="account_balance_wallet" size={20} />Reward History</div>
               <Icon name="chevron_right" size={20} />
             </div>
           </section>
 
+          {/* Quick Actions */}
           <section className="grid grid-cols-4 gap-4">
-            <QuickAction
-              icon="add_circle"
-              label="Load Money"
-              fill={1}
-            />
-
-            <QuickAction
-              icon="send_to_mobile"
-              label="Send Money"
-            />
-
-            <QuickAction
-              icon="account_balance"
-              label="Bank Transfer"
-            />
-
-            <QuickAction
-              icon="payments"
-              label="Remittance"
-            />
+            <QuickAction icon="add_circle"       label="Load Money"     fill={1} />
+            <QuickAction icon="send_to_mobile"   label="Send Money"     />
+            <QuickAction icon="account_balance"  label="Bank Transfer"  />
+            <QuickAction icon="payments"         label="Remittance"     />
           </section>
 
+          {/* Upcoming Schedules */}
           <section>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-base font-bold">
-                Upcoming Schedules
-              </h2>
-
-              <button
-                onClick={() => navigate("/schedules")}
-                className="text-[#00654b] text-sm font-bold hover:underline"
-              >
-                View All
-              </button>
+              <h2 className="text-base font-bold">Upcoming Schedules</h2>
+              <button onClick={() => navigate("/schedules")} className="text-[#00654b] text-sm font-bold hover:underline">View All</button>
             </div>
-
             <div className="flex gap-4 overflow-x-auto pb-4 -mx-5 px-5 scrollbar-hide">
-
-              <ScheduleCard
-                img={vianetImg}
-                title="Vianet Fiber"
-                subtitle="Due in 2 days"
-                amount="NPR 1,750"
-                bg="bg-red-50"
-              />
-
-              <ScheduleCard
-                img={neaImg}
-                title="NEA Electricity"
-                subtitle="Due in 4 days"
-                amount="NPR 2,450"
-                bg="bg-blue-50"
-              />
+              <ScheduleCard img={vianetImg} title="Vianet Fiber"    subtitle="Due in 2 days" amount="NPR 1,750" bg="bg-red-50"  />
+              <ScheduleCard img={neaImg}    title="NEA Electricity" subtitle="Due in 4 days" amount="NPR 2,450" bg="bg-blue-50" />
             </div>
           </section>
 
+          {/* Utility Grid */}
           <section>
-            <h2 className="text-base font-bold mb-4">
-              Utility & Bill Payments
-            </h2>
-
+            <h2 className="text-base font-bold mb-4">Utility & Bill Payments</h2>
             {isLoadingUtilities ? (
               <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm grid grid-cols-4 gap-y-8 animate-pulse">
-                {[...Array(8)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex flex-col items-center gap-2"
-                  >
-                    <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
-
-                    <div className="w-12 h-2 bg-gray-100 rounded"></div>
+                {[...Array(8)].map((_,i) => (
+                  <div key={i} className="flex flex-col items-center gap-2">
+                    <div className="w-10 h-10 bg-gray-200 rounded-full" />
+                    <div className="w-12 h-2 bg-gray-100 rounded" />
                   </div>
                 ))}
               </div>
             ) : (
               <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm grid grid-cols-4 gap-y-8 animate-fade-in">
-
-                <UtilityItem icon="smartphone" label="Topup" />
-                <UtilityItem icon="bolt" label="Electricity" />
-                <UtilityItem icon="water_drop" label="Water" />
-                <UtilityItem icon="wifi" label="Internet" />
-                <UtilityItem icon="tv" label="Television" />
-                <UtilityItem icon="flight" label="Airlines" />
-                <UtilityItem icon="movie" label="Movies" />
-                <UtilityItem icon="more_horiz" label="All" />
+                <UtilityItem icon="smartphone" label="Topup"       />
+                <UtilityItem icon="bolt"       label="Electricity" />
+                <UtilityItem icon="water_drop" label="Water"       />
+                <UtilityItem icon="wifi"       label="Internet"    />
+                <UtilityItem icon="tv"         label="Television"  />
+                <UtilityItem icon="flight"     label="Airlines"    />
+                <UtilityItem icon="movie"      label="Movies"      />
+                <UtilityItem icon="more_horiz" label="All"         />
               </div>
             )}
           </section>
 
+          {/* Promo Banner */}
           <section className="pb-4">
             <div className="relative w-full h-32 rounded-3xl overflow-hidden shadow-sm group">
-              <img
-                alt="Promo"
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                src="https://images.unsplash.com/photo-1616077168079-7e09a677fb2c?auto=format&fit=crop&q=80&w=800"
-              />
-
+              <img alt="Promo" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                src="https://images.unsplash.com/photo-1616077168079-7e09a677fb2c?auto=format&fit=crop&q=80&w=800" />
               <div className="absolute inset-0 bg-gradient-to-r from-[#00654b]/95 via-[#00654b]/70 to-transparent flex flex-col justify-center px-8">
-
-                <span className="bg-white/20 w-fit px-2 py-0.5 rounded text-[10px] text-white font-bold mb-2 uppercase tracking-widest">
-                  Limited Offer
-                </span>
-
-                <p className="text-white text-xl font-extrabold">
-                  Flat 10% Cashback
-                </p>
-
-                <p className="text-white/80 text-xs font-medium">
-                  On your first Vianet bill payment
-                </p>
+                <span className="bg-white/20 w-fit px-2 py-0.5 rounded text-[10px] text-white font-bold mb-2 uppercase tracking-widest">Limited Offer</span>
+                <p className="text-white text-xl font-extrabold">Flat 10% Cashback</p>
+                <p className="text-white/80 text-xs font-medium">On your first Vianet bill payment</p>
               </div>
             </div>
           </section>
         </main>
 
+        {/* Bottom Nav */}
         <nav className="fixed bottom-0 left-0 w-full z-40 bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.05)] h-20 flex justify-around items-center px-2">
-
-          <NavBtn
-            onClick={() => navigate("/")}
-            icon="home"
-            label="Home"
-            active={location.pathname === "/"}
-          />
-
-          <NavBtn
-            icon="receipt_long"
-            label="Statement"
-          />
-
+          <NavBtn onClick={() => navigate("/")}          icon="home"          label="Home"      active={location.pathname === "/"} />
+          <NavBtn onClick={() => navigate("/statement")} icon="receipt_long"  label="Statement" />
           <div className="relative -mt-10">
             <button className="w-16 h-16 bg-[#00654b] text-white rounded-full flex items-center justify-center border-4 border-white shadow-lg active:scale-95 transition-all">
               <Icon name="qr_code_scanner" size={32} />
             </button>
-
-            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#00654b] whitespace-nowrap">
-              Scan & Pay
-            </span>
+            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#00654b] whitespace-nowrap">Scan & Pay</span>
           </div>
-
-          <NavBtn
-            onClick={() => navigate("/schedules")}
-            icon="calendar_month"
-            label="Schedules"
-            active={location.pathname === "/schedules"}
-          />
-
-          <NavBtn
-            icon="grid_view"
-            label="More"
-          />
+          <NavBtn onClick={() => navigate("/schedules")} icon="calendar_month" label="Schedules" active={location.pathname === "/schedules"} />
+          <NavBtn onClick={() => navigate("/more")}      icon="grid_view"      label="More" />
         </nav>
+
+        {/* ── Chatbot FAB + preview bubble ── */}
+        <ChatbotFAB onClick={() => navigate("/chatbot")} />
       </div>
     </div>
   );
 };
 
+// ─── Sub-components ───────────────────────────────────────────────────────────
 const IconButton = ({ icon, hasBadge, onClick }) => (
-  <button
-    onClick={onClick}
-    className="p-2 hover:bg-gray-100 rounded-full relative transition-colors"
-  >
+  <button onClick={onClick} className="p-2 hover:bg-gray-100 rounded-full relative transition-colors">
     <Icon name={icon} className="text-gray-600" />
-
-    {hasBadge && (
-      <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>
-    )}
+    {hasBadge && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse" />}
   </button>
 );
 
 const QuickAction = ({ icon, label, fill = 0 }) => (
   <div className="flex flex-col items-center gap-2">
     <button className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 transition-all">
-      <Icon
-        name={icon}
-        size={28}
-        className="text-[#00654b]"
-        fill={fill}
-      />
+      <Icon name={icon} size={28} className="text-[#00654b]" fill={fill} />
     </button>
-
-    <span className="text-[11px] font-semibold text-gray-700 text-center leading-tight uppercase tracking-tighter">
-      {label}
-    </span>
+    <span className="text-[11px] font-semibold text-gray-700 text-center leading-tight uppercase tracking-tighter">{label}</span>
   </div>
 );
 
-const ScheduleCard = ({
-  img,
-  title,
-  subtitle,
-  amount,
-  bg,
-}) => (
+const ScheduleCard = ({ img, title, subtitle, amount, bg }) => (
   <div className="min-w-[240px] bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4 active:scale-95 transition-transform">
-
-    <div
-      className={`w-14 h-14 ${bg} rounded-xl flex items-center justify-center overflow-hidden p-2 flex-shrink-0`}
-    >
-      <img
-        src={img}
-        alt={title}
-        className="w-full h-full object-contain"
-      />
+    <div className={`w-14 h-14 ${bg} rounded-xl flex items-center justify-center overflow-hidden p-2 flex-shrink-0`}>
+      <img src={img} alt={title} className="w-full h-full object-contain" />
     </div>
-
     <div className="overflow-hidden">
-      <p className="text-[13px] font-bold text-gray-900 truncate">
-        {title}
-      </p>
-
-      <p className="text-[11px] text-gray-500 font-medium">
-        {subtitle}
-      </p>
-
-      <p className="text-sm font-extrabold text-[#00654b] mt-0.5">
-        {amount}
-      </p>
+      <p className="text-[13px] font-bold text-gray-900 truncate">{title}</p>
+      <p className="text-[11px] text-gray-500 font-medium">{subtitle}</p>
+      <p className="text-sm font-extrabold text-[#00654b] mt-0.5">{amount}</p>
     </div>
   </div>
 );
 
 const UtilityItem = ({ icon, label }) => (
   <div className="flex flex-col items-center gap-2 active:opacity-60 transition-opacity">
-    <Icon
-      name={icon}
-      size={26}
-      className="text-gray-500"
-    />
-
-    <span className="text-[10px] font-bold text-gray-500 uppercase">
-      {label}
-    </span>
+    <Icon name={icon} size={26} className="text-gray-500" />
+    <span className="text-[10px] font-bold text-gray-500 uppercase">{label}</span>
   </div>
 );
 
-const NavBtn = ({
-  onClick,
-  icon,
-  label,
-  active,
-}) => (
-  <button
-    onClick={onClick}
-    className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${
-      active ? "text-[#00654b]" : "text-gray-400"
-    }`}
-  >
-    <Icon
-      name={icon}
-      fill={active ? 1 : 0}
-    />
-
-    <span className="text-[10px] font-bold mt-1 uppercase">
-      {label}
-    </span>
+const NavBtn = ({ onClick, icon, label, active }) => (
+  <button onClick={onClick} className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${active ? "text-[#00654b]" : "text-gray-400"}`}>
+    <Icon name={icon} fill={active ? 1 : 0} />
+    <span className="text-[10px] font-bold mt-1 uppercase">{label}</span>
   </button>
 );
+
+// ── Chatbot floating bubble + FAB ─────────────────────────────────────────────
+function ChatbotFAB({ onClick }) {
+  const [showBubble, setShowBubble] = React.useState(false);
+  const [dismissed,  setDismissed]  = React.useState(false);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setShowBubble(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <>
+      <style>{`
+        @keyframes fabPulse  { 0%,100%{box-shadow:0 6px 24px -4px rgba(0,101,75,0.55)} 50%{box-shadow:0 6px 24px -4px rgba(0,101,75,0.55),0 0 0 10px rgba(0,101,75,0.08)} }
+        @keyframes bubbleIn  { from{opacity:0;transform:translateY(10px) scale(0.9)} to{opacity:1;transform:translateY(0) scale(1)} }
+        @keyframes badgePop  { from{transform:scale(0)} 70%{transform:scale(1.2)} to{transform:scale(1)} }
+        .fab-pulse { animation: fabPulse 2.5s ease-in-out infinite }
+        .bubble-in { animation: bubbleIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards }
+        .badge-pop { animation: badgePop 0.4s cubic-bezier(0.34,1.56,0.64,1) 1.6s both }
+      `}</style>
+
+      <div style={{ position:"fixed", bottom:96, right:16, zIndex:50, display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
+
+        {/* Preview message bubble */}
+        {showBubble && !dismissed && (
+          <div
+            className="bubble-in"
+            onClick={onClick}
+            style={{
+              position:"relative", background:"#fff",
+              borderRadius:"16px 16px 4px 16px",
+              border:"1px solid #e5e7eb",
+              boxShadow:"0 8px 32px -4px rgba(0,0,0,0.13)",
+              padding:"12px 14px 12px 12px",
+              maxWidth:220, cursor:"pointer",
+              display:"flex", alignItems:"flex-start", gap:10,
+            }}
+          >
+            {/* Dismiss × */}
+            <button
+              onClick={e => { e.stopPropagation(); setDismissed(true); }}
+              style={{
+                position:"absolute", top:-8, right:-8,
+                width:20, height:20, borderRadius:"50%",
+                background:"#6b7280", border:"none", cursor:"pointer",
+                display:"flex", alignItems:"center", justifyContent:"center",
+              }}
+            >
+              <Icon name="close" size={12} className="text-white" />
+            </button>
+
+            {/* Avatar — eSewa logo */}
+            <div style={{
+              width:32, height:32, borderRadius:"50%", flexShrink:0,
+              overflow:"hidden", border:"2px solid #e5e7eb",
+              background:"#fff",
+            }}>
+              <img src={esewaLogo} alt="eSewa" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+            </div>
+
+            {/* Message */}
+            <div>
+              <p style={{ fontSize:11, fontWeight:800, color:"#141b2b", margin:"0 0 3px" }}>eSewa Assistant</p>
+              <p style={{ fontSize:12, color:"#4b5563", margin:0, lineHeight:1.4 }}>
+                ⚠️ You have 2 overdue bills. Tap to fix now!
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* FAB button */}
+        <button
+          onClick={onClick}
+          className="fab-pulse"
+          style={{
+            width:58, height:58, borderRadius:"50%",
+            background:"#fff",
+            border:"3px solid #00654b",
+            cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            position:"relative",
+            overflow:"hidden",
+            padding:0,
+          }}
+        >
+          <span className="badge-pop" style={{
+            position:"absolute", top:-4, right:-4,
+            width:20, height:20, borderRadius:"50%",
+            background:"#ef4444", border:"2px solid #fff",
+            display:"flex", alignItems:"center", justifyContent:"center",
+            fontSize:10, fontWeight:900, color:"#fff",
+            zIndex:1,
+          }}>2</span>
+          <img
+            src={esewaLogo}
+            alt="eSewa"
+            style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%" }}
+          />
+        </button>
+      </div>
+    </>
+  );
+}
 
 export default Home;
