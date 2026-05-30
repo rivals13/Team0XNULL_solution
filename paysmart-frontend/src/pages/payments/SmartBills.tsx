@@ -12,8 +12,9 @@
  *  • Smart reminders (SMS + push before due date)
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { IoChevronBack } from 'react-icons/io5';
 import { billerAccountsApi, paymentsApi } from '../../api';
 import type { BillerAccount, FetchedBill, PaymentProvider } from '../../types';
 import Spinner from '../../components/Spinner';
@@ -39,20 +40,42 @@ const CAT_META: Record<string, { icon: React.ReactNode; label: string; bg: strin
   INSURANCE:   { icon: <BsShield className="w-5 h-5 text-green-600" />,          label: 'Insurance',        bg: 'bg-green-50',   accent: 'text-green-700'  },
 };
 
+const ESEWA_LOGO_24 = (
+  <img src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
+    style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '6px' }} alt="eSewa" />
+);
+
 const SMART_BILL_PROVIDERS: Array<{ id: PaymentProvider; label: string; logo: React.ReactNode; color: string }> = [
-  {
-    id: 'ESEWA',
-    label: 'eSewa',
-    logo: <img src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '6px' }} alt="eSewa" />,
-    color: 'border-green-500 bg-green-50',
-  },
-  {
-    id: 'WALLET',
-    label: 'PaySmart Wallet',
-    logo: <BsWallet2 className="w-6 h-6 text-primary" />,
-    color: 'border-primary bg-[#E8F5EE]',
-  },
+  { id: 'ESEWA',  label: 'eSewa',           logo: ESEWA_LOGO_24,                               color: 'border-green-500 bg-green-50'    },
+  { id: 'WALLET', label: 'PaySmart Wallet', logo: <BsWallet2 className="w-6 h-6 text-primary" />, color: 'border-primary bg-[#E8F5EE]'  },
 ];
+
+const NEPAL_BANKS_SB = [
+  'Siddhartha Bank Ltd', 'Everest Bank Ltd', 'NIC Asia Bank', 'Nepal Investment Mega Bank',
+  'Nabil Bank', 'Standard Chartered Bank', 'Himalayan Bank', 'Global IME Bank',
+  'Kumari Bank', 'Laxmi Sunrise Bank', 'Citizens Bank', 'Prime Commercial Bank',
+  'NMB Bank', 'Sanima Bank', 'Machhapuchchhre Bank',
+];
+
+// ─── Map backend BillInquiryResult → local FetchedBill shape ─────────────────
+// Defined outside the component so it can be used in useCallback without deps
+function mapBackendBill(raw: Record<string, unknown>, acc: BillerAccount): FetchedBill {
+  const amount  = typeof raw.amount  === 'number' ? raw.amount  : 0;
+  const dueDate = typeof raw.dueDate === 'string'  ? raw.dueDate : new Date().toISOString();
+  const now     = new Date();
+  return {
+    accountId:     acc.id,
+    currentAmount: amount,
+    fine:          0,
+    rebate:        0,
+    serviceCharge: 0,
+    dueDate,
+    billPeriod:    `${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()}`,
+    planName:      typeof raw.invoiceNumber === 'string' ? `Inv: ${raw.invoiceNumber}` : undefined,
+    status:        new Date(dueDate) < now ? 'OVERDUE' : 'DUE',
+    fetchedAt:     new Date().toISOString(),
+  };
+}
 
 // ─── Mock bill fetch ── simulates NEA / KUKL / ISP API response ───────────────
 function mockFetchBill(acc: BillerAccount): Promise<FetchedBill> {
@@ -128,23 +151,66 @@ function mockMonthlyData() {
 
 export default function SmartBills() {
   const navigate            = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toasts, show }    = useToast();
+  const openPayParam        = searchParams.get('openPay'); // accountId to auto-open payment
+  const autoPayTriggered    = useRef(false);
 
-  const [accounts,     setAccounts]     = useState<BillerAccount[]>([]);
-  const [fetchedBills, setFetchedBills] = useState<Record<string, FetchedBill>>({});
-  const [fetching,     setFetching]     = useState<Record<string, boolean>>({});
-  const [loading,      setLoading]      = useState(true);
-  const [activeTab,    setActiveTab]    = useState<string>('ALL');
-  const [balance,      setBalance]      = useState<number | null>(null);
+  const [accounts,       setAccounts]       = useState<BillerAccount[]>([]);
+  const [fetchedBills,   setFetchedBills]   = useState<Record<string, FetchedBill>>({});
+  const [fetching,       setFetching]       = useState<Record<string, boolean>>({});
+  const [loading,        setLoading]        = useState(true);
+  const [activeTab,      setActiveTab]      = useState<string>('ALL');
+  const [balance,        setBalance]        = useState<number | null>(null);
+  // Customer validation — 'valid' | 'not_found' | 'no_url' per account
+  const [validationMap, setValidationMap]   = useState<Record<string, 'valid' | 'not_found' | 'no_url'>>({});
 
   // Payment modal state
   const [payModal, setPayModal]                 = useState<{ acc: BillerAccount; bill: FetchedBill } | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('ESEWA');
   const [paying, setPaying]                     = useState(false);
+  // Bank payment form (shown when user selects Bank in the modal)
+  const [bankPayForm, setBankPayForm] = useState({ bankName: '', account: '', holder: '' });
+  const setBP = (k: keyof typeof bankPayForm) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setBankPayForm(p => ({ ...p, [k]: e.target.value }));
 
   // Analytics tab
   const [showAnalytics, setShowAnalytics] = useState(false);
   const analyticsData = mockMonthlyData();
+
+  /**
+   * Background validation — for each account that has a billInquiryUrl set on its merchant,
+   * calls check-bill and marks the account as valid (customer found) or not_found.
+   * Also auto-populates fetchedBills when a real bill comes back.
+   */
+  const autoValidate = useCallback(async (accs: BillerAccount[]) => {
+    if (accs.length === 0) return;
+    const results = await Promise.allSettled(
+      accs.map(acc => billerAccountsApi.checkBill(acc.id) as Promise<Record<string, unknown>>),
+    );
+    const newBills:      Record<string, FetchedBill>                    = {};
+    const newValidation: Record<string, 'valid' | 'not_found' | 'no_url'> = {};
+
+    results.forEach((result, i) => {
+      const acc = accs[i];
+      if (result.status === 'fulfilled') {
+        const raw = result.value;
+        if (raw && !('noBill' in raw) && typeof raw.amount === 'number') {
+          // Bill found → auto-populate the bill card
+          newBills[acc.id]      = mapBackendBill(raw, acc);
+          newValidation[acc.id] = 'valid';
+        } else if (raw && 'noBill' in raw) {
+          const reason = (raw as { noBill: true; reason: string }).reason;
+          newValidation[acc.id] = reason === 'CUSTOMER_NOT_FOUND' ? 'not_found' : 'no_url';
+        }
+      }
+      // If rejected (network error) — leave validation unset, no badge shown
+    });
+
+    setFetchedBills(prev => ({ ...prev, ...newBills }));
+    setValidationMap(newValidation);
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -155,33 +221,25 @@ export default function SmartBills() {
       ]);
       setAccounts(accs);
       setBalance(bal.balance);
+      // Validate all accounts in the background — don't block the UI
+      autoValidate(accs).catch(() => {});
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, []);
+  }, [autoValidate]);
 
   useEffect(() => { load(); }, [load]);
 
-  /**
-   * Map a backend BillInquiryResult to the FetchedBill shape used locally.
-   * Falls back to mockFetchBill if the API returns { noBill: true } or fails.
-   */
-  const mapBackendBill = (raw: Record<string, unknown>, acc: BillerAccount): FetchedBill => {
-    const amount = typeof raw.amount === 'number' ? raw.amount : 0;
-    const dueDate = typeof raw.dueDate === 'string' ? raw.dueDate : new Date().toISOString();
-    const now = new Date();
-    return {
-      accountId:     acc.id,
-      currentAmount: amount,
-      fine:          0,
-      rebate:        0,
-      serviceCharge: 0,
-      dueDate,
-      billPeriod:    `${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()}`,
-      planName:      typeof raw.invoiceNumber === 'string' ? `Inv: ${raw.invoiceNumber}` : undefined,
-      status:        new Date(dueDate) < now ? 'OVERDUE' : 'DUE',
-      fetchedAt:     new Date().toISOString(),
-    };
-  };
+  // Auto-open Pay Now modal when navigated from Onboarding success screen
+  useEffect(() => {
+    if (!openPayParam || accounts.length === 0 || autoPayTriggered.current) return;
+    const acc = accounts.find(a => a.id === openPayParam);
+    if (!acc) return;
+    autoPayTriggered.current = true;
+    // Clear the param from URL without re-render loop
+    setSearchParams({}, { replace: true });
+    fetchAndPay(acc);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPayParam, accounts]);
 
   const fetchBill = async (acc: BillerAccount) => {
     setFetching(p => ({ ...p, [acc.id]: true }));
@@ -228,6 +286,7 @@ export default function SmartBills() {
   const openPay = (acc: BillerAccount, bill: FetchedBill) => {
     setPayModal({ acc, bill });
     setSelectedProvider('ESEWA');
+    setBankPayForm({ bankName: '', account: '', holder: '' });
   };
 
   const confirmPay = async () => {
@@ -258,11 +317,18 @@ export default function SmartBills() {
   const schedulePayment = (acc: BillerAccount, bill: FetchedBill) => {
     const total = bill.currentAmount + bill.serviceCharge - bill.rebate;
     const q = new URLSearchParams({
-      name:        `${acc.billerName} — ${bill.billPeriod}`,
-      amount:      String(total),
-      recipientId: acc.billerName,
-      description: `${acc.billerName} utility bill — ${bill.billPeriod}`,
-      dueDate:     bill.dueDate,
+      // Flag — tells NewSchedule this came from Smart Bills
+      fromSmartBill:   'true',
+      // Pre-fill fields
+      name:            `${acc.billerName} — ${bill.billPeriod}`,
+      amount:          String(total),
+      billerName:      acc.billerName,
+      merchantSlug:    acc.billerSlug,
+      customerId:      acc.customerId,
+      billerAccountId: acc.id,
+      billerCategory:  acc.billerCategory.toUpperCase(),
+      description:     `${acc.billerName} utility bill — ${bill.billPeriod}`,
+      dueDate:         bill.dueDate,
     });
     navigate(`/schedules/new?${q}`);
   };
@@ -288,9 +354,9 @@ export default function SmartBills() {
 
       {/* ── Payment Modal ── */}
       {payModal && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center">
+        <div className="fixed inset-0 z-50 flex items-end justify-center pb-[66px]">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !paying && setPayModal(null)} />
-          <div className="relative w-full max-w-[390px] bg-white rounded-t-[32px] animate-slide-up mx-auto max-h-[88vh] overflow-y-auto">
+          <div className="relative w-full max-w-[390px] bg-white rounded-t-[32px] animate-slide-up mx-auto max-h-[80vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-primary px-5 pt-5 pb-6 rounded-t-[32px]">
               <div className="flex justify-between items-center mb-3">
@@ -336,32 +402,58 @@ export default function SmartBills() {
                 </div>
               </div>
 
-              {/* Payment method selector */}
-              <p className="text-sm font-semibold text-gray-700 mb-2.5">Pay via</p>
-              <div className="flex flex-col gap-2 mb-5">
-                {SMART_BILL_PROVIDERS.map(p => (
-                  <button
-                    key={p.id}
-                    onClick={() => setSelectedProvider(p.id)}
-                    className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all ${
-                      selectedProvider === p.id ? p.color + ' border-opacity-100' : 'border-gray-100 bg-white'
-                    }`}
-                  >
-                    <span className="flex items-center justify-center w-6 h-6">{p.logo}</span>
-                    <div className="flex-1 text-left">
-                      <p className="font-semibold text-gray-800 text-sm">{p.label}</p>
-                      {p.id === 'WALLET' && balance !== null && (
-                        <p className="text-xs text-gray-400">Balance: NPR {balance.toLocaleString('en-NP')}</p>
-                      )}
-                    </div>
-                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedProvider === p.id ? 'border-primary' : 'border-gray-300'
-                    }`}>
-                      {selectedProvider === p.id && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
-                    </div>
-                  </button>
-                ))}
+              {/* ── Payment method: eSewa or Bank ── */}
+              <p className="text-sm font-semibold text-gray-700 mb-2">Pay via</p>
+              <div className="flex gap-2 mb-4">
+                <button type="button"
+                  onClick={() => setSelectedProvider('ESEWA')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 transition-colors ${
+                    selectedProvider === 'ESEWA' ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-white'
+                  }`}>
+                  {ESEWA_LOGO_24}
+                  <span className={`text-sm font-semibold ${selectedProvider === 'ESEWA' ? 'text-green-700' : 'text-gray-600'}`}>eSewa</span>
+                </button>
+                <button type="button"
+                  onClick={() => setSelectedProvider('WALLET')}
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 transition-colors ${
+                    selectedProvider === 'WALLET' ? 'border-primary bg-[#E8F5EE]' : 'border-gray-100 bg-white'
+                  }`}>
+                  <BsWallet2 className={`w-5 h-5 ${selectedProvider === 'WALLET' ? 'text-primary' : 'text-gray-500'}`} />
+                  <span className={`text-sm font-semibold ${selectedProvider === 'WALLET' ? 'text-primary' : 'text-gray-600'}`}>Bank</span>
+                </button>
               </div>
+
+              {/* Bank details — shown when WALLET (bank) is selected */}
+              {selectedProvider === 'WALLET' && (
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 flex flex-col gap-3 mb-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase">Bank Transfer Details</p>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Bank Name</label>
+                    <select value={bankPayForm.bankName} onChange={setBP('bankName')}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary">
+                      <option value="">Select bank</option>
+                      {NEPAL_BANKS_SB.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Account Number</label>
+                    <input value={bankPayForm.account} onChange={setBP('account')}
+                      placeholder="Enter account number"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Account Holder Name</label>
+                    <input value={bankPayForm.holder} onChange={setBP('holder')}
+                      placeholder="Name on bank account"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
+                  </div>
+                </div>
+              )}
+
+              {/* eSewa balance hint */}
+              {selectedProvider === 'ESEWA' && balance !== null && (
+                <p className="text-xs text-gray-400 mb-4">eSewa balance: NPR {balance.toLocaleString('en-NP')}</p>
+              )}
 
               {/* Non-editable payment recipient */}
               <div className="bg-gray-50 rounded-2xl px-4 py-3 mb-5 flex items-center gap-3">
@@ -385,9 +477,17 @@ export default function SmartBills() {
 
       {/* ── Header ── */}
       <div className="bg-white px-5 pt-12 pb-3 flex items-center justify-between border-b border-gray-100">
-        <div>
-          <h1 className="font-bold text-gray-800 text-xl">Smart Bills</h1>
-          <p className="text-gray-400 text-xs mt-0.5">Smart Utility Management Platform</p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-700 active:bg-gray-200 flex-shrink-0"
+          >
+            <IoChevronBack className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="font-bold text-gray-800 text-xl">Smart Bills</h1>
+            <p className="text-gray-400 text-xs mt-0.5">Smart Utility Management Platform</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -557,6 +657,7 @@ export default function SmartBills() {
                 acc={acc}
                 bill={fetchedBills[acc.id]}
                 fetching={!!fetching[acc.id]}
+                validation={validationMap[acc.id]}
                 onFetch={() => fetchBill(acc)}
                 onFetchAndPay={() => fetchAndPay(acc)}
                 onPay={(bill) => openPay(acc, bill)}
@@ -598,11 +699,12 @@ export default function SmartBills() {
 // Individual bill card
 // ─────────────────────────────────────────────────────────────────────────────
 function BillCard({
-  acc, bill, fetching, onFetch, onFetchAndPay, onPay, onSchedule, onDelete,
+  acc, bill, fetching, validation, onFetch, onFetchAndPay, onPay, onSchedule, onDelete,
 }: {
   acc: BillerAccount;
   bill: FetchedBill | undefined;
   fetching: boolean;
+  validation?: 'valid' | 'not_found' | 'no_url';
   onFetch: () => void;
   onFetchAndPay: () => void;
   onPay: (b: FetchedBill) => void;
@@ -652,6 +754,27 @@ function BillCard({
           <span className="text-gray-300 text-lg">{expanded ? '▲' : '▼'}</span>
         </div>
       </button>
+
+      {/* Customer validation badge — shown always (not just expanded) */}
+      {validation === 'not_found' && (
+        <div className="px-4 pb-3 -mt-1">
+          <div className="bg-red-50 border border-red-100 rounded-xl px-3 py-2 flex items-center gap-2">
+            <span className="text-red-500 text-sm flex-shrink-0">⚠️</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-red-600 text-xs font-semibold">Customer ID not found</p>
+              <p className="text-red-400 text-[10px]">"{acc.customerId}" is not in the merchant's database. Please verify and re-add.</p>
+            </div>
+          </div>
+        </div>
+      )}
+      {validation === 'valid' && !bill && (
+        <div className="px-4 pb-2 -mt-1">
+          <div className="bg-green-50 border border-green-100 rounded-xl px-3 py-1.5 flex items-center gap-2">
+            <span className="text-green-500 text-xs">✓</span>
+            <p className="text-green-600 text-xs font-medium">Account verified with merchant</p>
+          </div>
+        </div>
+      )}
 
       {/* Expanded content */}
       {expanded && (

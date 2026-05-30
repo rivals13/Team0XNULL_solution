@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from './store/auth';
+import SocketProvider from './context/SocketProvider';
 
 import Onboarding        from './pages/onboarding/Onboarding';
 import Login             from './pages/auth/Login';
@@ -26,6 +27,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <SocketProvider>
       <Routes>
         <Route path="/"            element={<Navigate to="/login" replace />} />
         <Route path="/onboarding"  element={<Onboarding />} />
@@ -48,6 +50,7 @@ export default function App() {
         <Route path="/pay/*"       element={<RequireAuth><PaymentConfirm /></RequireAuth>} />
         <Route path="*"            element={<Navigate to="/login" replace />} />
       </Routes>
+      </SocketProvider>
     </BrowserRouter>
   );
 }

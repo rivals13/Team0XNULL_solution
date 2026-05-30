@@ -69,6 +69,11 @@ export const schedulesApi = {
 
   get: (id: string) => client.get<Schedule>(`/schedules/${id}`).then(r => r.data),
 
+  update: (id: string, body: {
+    name?: string; amount?: number; recipientId?: string;
+    frequency?: string; nextRunAt?: string; description?: string; maxOccurrences?: number;
+  }) => client.patch<Schedule>(`/schedules/${id}`, body).then(r => r.data),
+
   pause: (id: string) => client.patch<Schedule>(`/schedules/${id}/pause`).then(r => r.data),
 
   resume: (id: string) => client.patch<Schedule>(`/schedules/${id}/resume`).then(r => r.data),
@@ -159,4 +164,37 @@ export const billerAccountsApi = {
 
   checkBill: (id: string) =>
     client.post(`/biller-accounts/${id}/check-bill`).then(r => r.data),
+};
+
+// ── Bill Inquiry (validate customer ID without saving an account) ─────────────
+export const billInquiryApi = {
+  /**
+   * Validates a customer ID against the merchant's bill-inquiry API.
+   * Does NOT require an existing biller account.
+   * Returns { valid: true, bill: {...} } or { valid: false, reason: string }
+   */
+  validate: (merchantSlug: string, customerId: string) =>
+    client.get<{ valid: boolean; reason?: string; bill?: Record<string, unknown> }>(
+      '/bill-inquiry/validate',
+      { params: { merchantSlug, customerId } },
+    ).then(r => r.data),
+};
+
+// ── Merchant list / public details ──────────────────────────────────────────
+export const merchantListApi = {
+  /** All active merchants — name, slug, category, eSewa ID, hasBillInquiry */
+  list: () =>
+    client.get<Array<{
+      id: string; name: string; slug: string; category: string;
+      description: string; esewaId: string | null;
+      hasBillInquiry: boolean; totalAccounts: number;
+    }>>('/merchant/list').then(r => r.data),
+
+  /** Public merchant details by slug — eSewa ID + bank accounts (no auth required) */
+  getBySlug: (slug: string) =>
+    client.get<{
+      id: string; name: string; slug: string; category: string;
+      esewaId: string | null;
+      banks: Array<{ bankName: string; accountNumber: string; accountHolder: string; branchCode?: string }>;
+    }>(`/merchant/by-slug/${slug}`).then(r => r.data),
 };

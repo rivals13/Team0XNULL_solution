@@ -83,9 +83,21 @@ export class NotificationsService {
       data: { userId, type, title, body, metadata: metadata as any },
     });
 
-    this.gateway.emitToUser(userId, 'notification', {
-      id: notification.id, type, title, body, createdAt: notification.createdAt,
-    });
+    const basePayload = { id: notification.id, type, title, body, metadata, createdAt: notification.createdAt };
+    this.gateway.emitToUser(userId, 'notification', basePayload);
+
+    // Dedicated WS event for bill-due → triggers the in-app popup on any page
+    if (type === 'BILL_DUE') {
+      this.gateway.emitToUser(userId, 'bill.due', {
+        ...basePayload,
+        merchantName: metadata?.merchantName,
+        merchantSlug: metadata?.merchantSlug,
+        amount:       metadata?.amount,
+        dueDate:      metadata?.dueDate,
+        description:  metadata?.description,
+        billId:       metadata?.billId,
+      });
+    }
 
     await this.sendFcm(userId, title, body);
     return notification;

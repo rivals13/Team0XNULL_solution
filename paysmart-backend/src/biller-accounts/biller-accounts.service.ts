@@ -1,11 +1,19 @@
 import {
   Injectable, Logger, ConflictException, NotFoundException,
 } from '@nestjs/common';
-import { MerchantCategory } from '@prisma/client';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
+import { MerchantCategory, BillStatus } from '@prisma/client';
+import axios from 'axios';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../common/encryption/encryption.service';
 import { CreateBillerAccountDto } from './dto/create-biller-account.dto';
+import { BILL_DUE_QUEUE, BILL_DUE_NOTIFICATION_JOB } from '../queue/queue.constants';
+import { BillDueJobData } from '../queue/processors/bill-due.processor';
 import { randomBytes } from 'crypto';
+
+// Base URL for self-calls to the mock merchant API
+const MOCK_BASE = process.env.APP_URL ?? 'http://localhost:3000';
 
 /** Map a UI-side category string to a valid Prisma MerchantCategory enum. */
 function toMerchantCategory(raw: string): MerchantCategory {
@@ -40,7 +48,9 @@ export class BillerAccountsService {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly enc: EncryptionService,
+    private readonly enc:    EncryptionService,
+    @InjectQueue(BILL_DUE_QUEUE)
+    private readonly billDueQueue: Queue<BillDueJobData>,
   ) {}
 
   /** List all biller accounts for the logged-in user with merchant info + decrypted details. */
@@ -115,6 +125,10 @@ export class BillerAccountsService {
 
     this.logger.log(`Biller account created: ${merchant.slug} / ${dto.customerId} for user ${userId}`);
 
+    // ── Post-save: immediately check mock merchant, then queue 20-second WS event ──
+    this.triggerBillCheck(userId, merchant.id, merchant.name, merchant.slug, dto.customerId, created.id)
+      .catch(err => this.logger.warn(`[BillerAccounts] Post-save check failed: ${err?.message}`));
+
     return {
       id:             created.id,
       billerName:     created.nickname ?? merchant.name,
@@ -127,6 +141,95 @@ export class BillerAccountsService {
       createdAt:      created.createdAt,
       merchant: { id: merchant.id, name: merchant.name, slug: merchant.slug, category: merchant.category },
     };
+  }
+
+  /**
+   * 1. Calls POST /mock-merchant/:slug/check-customer immediately after save.
+   * 2. If hasDue: true → saves bill to DB (deduped) and queues a Bull job.
+   * 3. Bull job fires after 20s → processor sends WebSocket BILL_DUE event
+   *    with customerId included in the payload.
+   *
+   * TESTING:  20-second delay
+   * PRODUCTION REPLACE WITH:
+   *   7 days before due = first reminder
+   *   3 days before due = second reminder
+   *   1 day  before due = urgent reminder
+   *   1 hour before due = final alert
+   */
+  private async triggerBillCheck(
+    userId:       string,
+    merchantId:   string,
+    merchantName: string,
+    merchantSlug: string,
+    customerId:   string,
+    billerAccountId: string,
+  ) {
+    // ── Step 1: call mock merchant ────────────────────────────────────────────
+    let result: { found: boolean; hasDue?: boolean; amount?: number; dueDate?: string; description?: string };
+    try {
+      const { data: raw } = await axios.post(
+        `${MOCK_BASE}/api/v1/mock-merchant/${merchantSlug}/check-customer`,
+        { customerId },
+        { timeout: 5000 },
+      );
+      // Unwrap global { success, data } envelope if present
+      result = (raw && 'success' in raw && 'data' in raw) ? raw.data : raw;
+    } catch (err: any) {
+      this.logger.warn(`[BillerAccounts] Mock merchant check failed for ${merchantSlug}/${customerId}: ${err?.message}`);
+      return;
+    }
+
+    this.logger.debug(`[BillerAccounts] Mock check ${merchantSlug}/${customerId} → found:${result?.found} hasDue:${result?.hasDue}`);
+
+    if (!result?.found || !result?.hasDue) {
+      this.logger.debug(`[BillerAccounts] No pending bill for ${merchantSlug}/${customerId} — skipping`);
+      return;
+    }
+
+    // ── Step 2: save bill to DB (deduplication) ───────────────────────────────
+    const amount  = result.amount ?? 0;
+    const dueDate = result.dueDate ? new Date(result.dueDate) : new Date();
+    const desc    = result.description ?? `${merchantName} bill due`;
+
+    let billId: string;
+    const existing = await this.prisma.bill.findFirst({
+      where: { userId, merchantId, amount, dueDate, status: { not: BillStatus.CANCELLED } },
+    });
+
+    if (existing) {
+      billId = existing.id;
+      this.logger.debug(`[BillerAccounts] Bill already exists (${billId}) — reusing for queue job`);
+    } else {
+      const bill = await this.prisma.bill.create({
+        data: { userId, merchantId, amount, dueDate, status: BillStatus.PENDING, description: desc },
+      });
+      billId = bill.id;
+      this.logger.log(`[BillerAccounts] Bill ${billId} saved for user ${userId} — ${merchantName}`);
+    }
+
+    // ── Step 3: queue Bull job with 20-second delay ───────────────────────────
+    const jobData: BillDueJobData = {
+      userId,
+      merchantName,
+      merchantSlug,
+      customerId,   // ← always included so frontend can pre-fill
+      amount,
+      dueDate:     dueDate.toISOString(),
+      description: desc,
+      billId,
+    };
+
+    await this.billDueQueue.add(BILL_DUE_NOTIFICATION_JOB, jobData, {
+      delay:            20 * 1000,   // TESTING: 20 seconds — see comment above
+      attempts:         3,
+      backoff:          { type: 'exponential', delay: 5000 },
+      removeOnComplete: 50,
+      removeOnFail:     20,
+    });
+
+    this.logger.log(
+      `[BillerAccounts] Bull job queued for ${merchantName}/${customerId} — fires in 20s`,
+    );
   }
 
   async remove(userId: string, id: string) {

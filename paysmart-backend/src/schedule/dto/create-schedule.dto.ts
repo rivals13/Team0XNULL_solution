@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString, IsNumber, IsEnum, IsOptional,
-  IsPositive, IsDateString, IsBoolean,
+  IsPositive, IsDateString, IsBoolean, IsInt, Min, Max,
 } from 'class-validator';
 import { ScheduleFreq } from '@prisma/client';
 
@@ -45,6 +45,13 @@ export class CreateScheduleDto {
   @IsOptional()
   @IsBoolean()
   autoRetry?: boolean;
+
+  @ApiPropertyOptional({ example: 3, description: '0 = unlimited, 1-10 = stop after N payments' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  maxOccurrences?: number;
 
   @ApiPropertyOptional({ example: 'Monthly electricity payment' })
   @IsOptional()

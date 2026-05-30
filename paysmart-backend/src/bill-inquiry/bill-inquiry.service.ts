@@ -73,7 +73,12 @@ export class BillInquiryService {
 
       const url = `${merchant.billInquiryUrl}?customerId=${encodeURIComponent(customerId)}`;
       const response = await axios.get(url, { headers, timeout: 8000 });
-      rawResponse = response.data;
+      // Some backends (incl. our own) wrap responses in { success, data, timestamp }.
+      // Unwrap if present so the rest of the code always sees the raw bill object.
+      const body = response.data;
+      rawResponse = (body && typeof body === 'object' && 'data' in body && body.success === true)
+        ? body.data
+        : body;
     } catch (err) {
       this.logger.error(
         `[BillInquiry] HTTP call failed for "${merchantSlug}" (customerId: ${customerId}): ${err?.message}`,
@@ -81,8 +86,22 @@ export class BillInquiryService {
       return null;
     }
 
-    // 5. Validate response has amount + dueDate
-    if (!rawResponse || typeof rawResponse.amount !== 'number' || !rawResponse.dueDate) {
+    // 5. Validate response — handle both { found: false } and legacy { error: 'CUSTOMER_NOT_FOUND' }
+    if (!rawResponse) {
+      this.logger.warn(`[BillInquiry] Empty response from "${merchantSlug}"`);
+      return null;
+    }
+    // New mock format: { found: false, message: '...' }
+    if (rawResponse.found === false) {
+      this.logger.debug(`[BillInquiry] Customer "${customerId}" not found at "${merchantSlug}": ${rawResponse.message}`);
+      return null;
+    }
+    // Legacy format: { error: 'CUSTOMER_NOT_FOUND', message: '...' }
+    if (rawResponse.error === 'CUSTOMER_NOT_FOUND') {
+      this.logger.debug(`[BillInquiry] Customer "${customerId}" not found at "${merchantSlug}": ${rawResponse.message}`);
+      return null;
+    }
+    if (typeof rawResponse.amount !== 'number' || !rawResponse.dueDate) {
       this.logger.warn(
         `[BillInquiry] Invalid response from "${merchantSlug}": missing amount or dueDate`,
       );
@@ -142,11 +161,13 @@ export class BillInquiryService {
               `New bill from ${merchant.name}`,
               `NPR ${result.amount.toFixed(2)} ${dueLine}. ${result.description}`.trim(),
               {
-                billId:      bill.id,
-                merchantId:  merchant.id,
+                billId:       bill.id,
+                merchantId:   merchant.id,
+                merchantSlug: merchant.slug,
                 merchantName: merchant.name,
-                amount:      result.amount,
-                dueDate:     dueDate.toISOString(),
+                amount:       result.amount,
+                dueDate:      dueDate.toISOString(),
+                description:  result.description,
               },
             ).catch(notifyErr =>
               this.logger.warn(`[BillInquiry] Notification failed for user ${userId}: ${notifyErr?.message}`),
@@ -156,9 +177,31 @@ export class BillInquiryService {
               `[BillInquiry] New bill ${bill.id} saved for user ${userId} from merchant ${merchantSlug}`,
             );
           } else {
+            // Bill already exists — still emit bill.due WS event so popup always appears
             result.billId = existing.id;
             this.logger.debug(
-              `[BillInquiry] Bill already exists (id: ${existing.id}) for user ${userId} — skipping insert`,
+              `[BillInquiry] Bill already exists (id: ${existing.id}) for user ${userId} — sending reminder notification`,
+            );
+
+            const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000);
+            const dueLine = daysUntil <= 0 ? 'due today' : `due in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`;
+
+            this.notifications.sendNotification(
+              userId,
+              'BILL_DUE',
+              `Bill reminder: ${merchant.name}`,
+              `NPR ${result.amount.toFixed(2)} ${dueLine}. ${result.description}`.trim(),
+              {
+                billId:       existing.id,
+                merchantId:   merchant.id,
+                merchantSlug: merchant.slug,
+                merchantName: merchant.name,
+                amount:       result.amount,
+                dueDate:      dueDate.toISOString(),
+                description:  result.description,
+              },
+            ).catch(notifyErr =>
+              this.logger.warn(`[BillInquiry] Reminder notification failed for user ${userId}: ${notifyErr?.message}`),
             );
           }
         } catch (dbErr) {
@@ -175,11 +218,16 @@ export class BillInquiryService {
   /**
    * Check bill for a specific biller account belonging to a user.
    * Used by the manual check-bill endpoint and the hourly cron.
+   *
+   * Returns:
+   *  - BillInquiryResult          → bill found (customer exists, bill data attached)
+   *  - { noBill: true, reason: 'NO_INQUIRY_URL' }       → merchant has no billInquiryUrl
+   *  - { noBill: true, reason: 'CUSTOMER_NOT_FOUND' }   → customerId not in merchant DB
    */
   async checkBillForAccount(
     accountId: string,
     userId: string,
-  ): Promise<BillInquiryResult | { noBill: true }> {
+  ): Promise<BillInquiryResult | { noBill: true; reason: string }> {
     // Find the biller account and verify it belongs to the user
     const account = await this.prisma.billerAccount.findFirst({
       where: { id: accountId, userId },
@@ -190,6 +238,11 @@ export class BillInquiryService {
       throw new NotFoundException('Biller account not found or access denied.');
     }
 
+    // Merchant has no billInquiryUrl — nothing to check (rent, insurance, custom, etc.)
+    if (!account.merchant.billInquiryUrl) {
+      return { noBill: true, reason: 'NO_INQUIRY_URL' };
+    }
+
     const result = await this.inquireBill(
       account.merchant.slug,
       account.accountNumber,
@@ -197,7 +250,9 @@ export class BillInquiryService {
     );
 
     if (!result) {
-      return { noBill: true };
+      // inquireBill returns null for CUSTOMER_NOT_FOUND, HTTP errors, or invalid responses.
+      // In all cases, report back as customer not found so the UI can show a clear error.
+      return { noBill: true, reason: 'CUSTOMER_NOT_FOUND' };
     }
 
     return result;

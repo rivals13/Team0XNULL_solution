@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsString, IsNumber, IsEnum, IsOptional,
-  IsPositive, IsDateString, IsBoolean,
+  IsPositive, IsDateString, IsBoolean, IsInt, Min, Max,
 } from 'class-validator';
 import { ScheduleFreq } from '@prisma/client';
 
@@ -46,6 +46,13 @@ export class UpdateScheduleDto {
   @IsOptional()
   @IsBoolean()
   autoRetry?: boolean;
+
+  @ApiPropertyOptional({ example: 5 })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(10)
+  maxOccurrences?: number;
 
   @ApiPropertyOptional({ example: 'Updated description' })
   @IsOptional()

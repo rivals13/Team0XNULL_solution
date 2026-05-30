@@ -59,6 +59,8 @@ export interface Schedule {
   lastRunAt?: string;
   endDate?: string;
   description?: string;
+  maxOccurrences: number;   // 0 = unlimited
+  executedCount:  number;
   createdAt: string;
 }
 

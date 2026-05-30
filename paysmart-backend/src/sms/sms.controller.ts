@@ -37,6 +37,19 @@ export class SmsController {
   }
 
   /**
+   * Public — receive inbound SMS from gateway (no JWT needed).
+   */
+  @Public()
+  @Post('receive')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Receive inbound SMS from gateway' })
+  receivesSms(@Body() body: any) {
+    console.log('📩 New SMS Received');
+    console.log(body);
+    return { success: true };
+  }
+
+  /**
    * Authenticated — let a logged-in user (re)verify their own phone.
    */
   @Post('otp/send-mine')

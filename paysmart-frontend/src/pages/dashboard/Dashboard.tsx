@@ -12,12 +12,26 @@ import BottomNav from '../../components/BottomNav';
 import type { Schedule, Suggestion, Notification, Bill } from '../../types';
 import {
   BsLightningCharge, BsWifi, BsTv, BsShield, BsWallet2, BsBell, BsHouseDoor,
+  BsSendFill, BsBank2, BsArrowUpRight, BsCalendarCheck, BsFileText,
+  BsChevronDown, BsChevronUp,
 } from 'react-icons/bs';
 import { FaWater } from 'react-icons/fa';
 import { IoSchoolOutline } from 'react-icons/io5';
 import { RiCarLine } from 'react-icons/ri';
 import { MdOutlinePhoneAndroid, MdFlight, MdLocalMovies, MdMoreHoriz } from 'react-icons/md';
+import { HiOutlinePlusSm } from 'react-icons/hi';
 // BillerAccount type imported above with the api
+
+// Smart Bills icon — clipboard with lines (matches BottomNav)
+function SmartBillsUtilIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2" />
+      <rect x="9" y="3" width="6" height="4" rx="1" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6M9 16h4" />
+    </svg>
+  );
+}
 
 const UTILITIES = [
   { label: 'Topup',       icon: <MdOutlinePhoneAndroid className="w-5 h-5" />, path: '/pay/mobile' },
@@ -27,14 +41,15 @@ const UTILITIES = [
   { label: 'Television',  icon: <BsTv className="w-5 h-5" />,                  path: '/pay/tv' },
   { label: 'Airlines',    icon: <MdFlight className="w-5 h-5" />,              path: '/pay/airlines' },
   { label: 'Movies',      icon: <MdLocalMovies className="w-5 h-5" />,         path: '/pay/movies' },
-  { label: 'More',        icon: <MdMoreHoriz className="w-5 h-5" />,           path: '/more' },
+  // Smart Bills replaces "More" — "More" is already in the bottom nav
+  { label: 'Smart Bills', icon: <SmartBillsUtilIcon className="w-5 h-5" />,   path: '/smart-bills', highlight: true },
 ];
 
 const QUICK_ACTIONS = [
-  { label: 'Load Money',    emoji: '➕', path: '/load' },
-  { label: 'Send Money',    emoji: '📤', path: '/payments' },
-  { label: 'Bank Transfer', emoji: '🏦', path: '/bank' },
-  { label: 'Remittance',   emoji: '💸', path: '/remittance' },
+  { label: 'Load Money',    icon: <HiOutlinePlusSm className="w-5 h-5" />, path: '/load',       color: 'text-green-600',  bg: 'bg-green-50'  },
+  { label: 'Send Money',    icon: <BsSendFill className="w-4 h-4" />,      path: '/payments',   color: 'text-blue-600',   bg: 'bg-blue-50'   },
+  { label: 'Bank Transfer', icon: <BsBank2 className="w-4 h-4" />,         path: '/bank',       color: 'text-purple-600', bg: 'bg-purple-50' },
+  { label: 'Remittance',   icon: <BsArrowUpRight className="w-4 h-4" />,  path: '/remittance', color: 'text-orange-600', bg: 'bg-orange-50' },
 ];
 
 function daysUntil(dateStr: string) {
@@ -55,7 +70,7 @@ export default function Dashboard() {
   const [balanceHidden,  setBalanceHidden]  = useState(false);
   const [unread,         setUnread]         = useState(0);
   const [liveNotif,      setLiveNotif]      = useState<Notification | null>(null);
-  const [billAlert,      setBillAlert]      = useState<Notification | null>(null); // full-screen bill popup
+  const [billAlert,      setBillAlert]      = useState<Notification | null>(null);
   const [loadingBills,   setLoadingBills]   = useState(true);
   const [activeSugIdx,   setActiveSugIdx]   = useState(0);
 
@@ -92,12 +107,28 @@ export default function Dashboard() {
       if (document.visibilityState === 'visible') {
         usersApi.getMyBills().then(setBills).catch(() => {});
         paymentsApi.getBalance().then(r => setBalance(r.balance)).catch(() => {});
-        schedulesApi.list().then(s => setSchedules(s.filter((sc: Schedule) => sc.status === 'ACTIVE').slice(0, 3))).catch(() => {});
+        schedulesApi.list().then(s => setSchedules(s.filter((sc: Schedule) => sc.status === 'ACTIVE').slice(0, 5))).catch(() => {});
         billerAccountsApi.list().then(setBillerAccounts).catch(() => {});
       }
     };
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+
+    // Immediately add new schedule when created from any screen (no reload needed)
+    const onScheduleCreated = (e: Event) => {
+      const s = (e as CustomEvent<Schedule>).detail;
+      if (s?.status === 'ACTIVE') {
+        setSchedules(prev => {
+          const already = prev.some(x => x.id === s.id);
+          return already ? prev : [s, ...prev].slice(0, 5);
+        });
+      }
+    };
+    window.addEventListener('scheduleCreated', onScheduleCreated);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('scheduleCreated', onScheduleCreated);
+    };
   }, []);
 
   useEffect(() => {
@@ -111,7 +142,7 @@ export default function Dashboard() {
           paymentsApi.getBalance(),
           billerAccountsApi.list(),
         ]);
-        setSchedules(s.filter((sc: Schedule) => sc.status === 'ACTIVE').slice(0, 3));
+        setSchedules(s.filter((sc: Schedule) => sc.status === 'ACTIVE').slice(0, 5));
         setUnread(u.count);
         setBills(b);
         setBalance(bal.balance);
@@ -175,6 +206,8 @@ export default function Dashboard() {
 
   // ── Bill Alert Popup handlers ─────────────────────────────────────────────
   const [billAlertPaying, setBillAlertPaying] = useState(false);
+  const [billAlertPayMethod, setBillAlertPayMethod] = useState<'ESEWA' | 'BANK'>('ESEWA');
+  const [billAlertBank, setBillAlertBank]     = useState({ bankName: '', account: '', holder: '' });
 
   const payBillAlert = async () => {
     if (!billAlert) return;
@@ -200,15 +233,22 @@ export default function Dashboard() {
 
   const scheduleBillAlert = () => {
     if (!billAlert) return;
-    const meta = billAlert.metadata as Record<string, unknown> | undefined;
-    const name = String(meta?.merchantName ?? 'Bill Payment');
+    const meta         = billAlert.metadata as Record<string, unknown> | undefined;
+    const merchantName = String(meta?.merchantName ?? 'Bill Payment');
+    const merchantSlug = String(meta?.merchantSlug ?? '');
+    // Find matching biller account so we can include customerId
+    const acc = billerAccounts.find(a => a.billerSlug === merchantSlug);
     const q = new URLSearchParams({
-      name:           name,
-      amount:         String(meta?.amount ?? ''),
-      recipientId:    name,                                    // merchant display name
-      paymentAccount: String(meta?.esewaId ?? meta?.khaltiId ?? meta?.merchantPhone ?? meta?.paymentAccount ?? name), // eSewa/bank no.
-      description:    billAlert.body,
-      dueDate:        String(meta?.dueDate ?? ''),
+      fromSmartBill:   'true',
+      name:            `${merchantName} — Bill`,
+      amount:          String(meta?.amount ?? ''),
+      billerName:      merchantName,
+      merchantSlug,
+      customerId:      acc?.customerId ?? '',
+      billerAccountId: acc?.id ?? '',
+      billerCategory:  (acc?.billerCategory ?? '').toUpperCase(),
+      description:     billAlert.body,
+      dueDate:         String(meta?.dueDate ?? ''),
     });
     setBillAlert(null);
     navigate(`/schedules/new?${q}`);
@@ -286,13 +326,49 @@ export default function Dashboard() {
                   </div>
                 )}
 
+                {/* Pay method choice */}
+                <div className="flex gap-2 mb-1">
+                  <button onClick={() => setBillAlertPayMethod('ESEWA')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 transition-colors ${
+                      billAlertPayMethod === 'ESEWA' ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-white'
+                    }`}>
+                    <img src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
+                      style={{ width: 20, height: 20, objectFit: 'contain', borderRadius: 4 }} alt="eSewa" />
+                    <span className={`text-sm font-semibold ${billAlertPayMethod === 'ESEWA' ? 'text-green-700' : 'text-gray-600'}`}>eSewa</span>
+                  </button>
+                  <button onClick={() => setBillAlertPayMethod('BANK')}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 transition-colors ${
+                      billAlertPayMethod === 'BANK' ? 'border-primary bg-[#E8F5EE]' : 'border-gray-100 bg-white'
+                    }`}>
+                    <BsBank2 className={`w-4 h-4 ${billAlertPayMethod === 'BANK' ? 'text-primary' : 'text-gray-400'}`} />
+                    <span className={`text-sm font-semibold ${billAlertPayMethod === 'BANK' ? 'text-primary' : 'text-gray-600'}`}>Bank</span>
+                  </button>
+                </div>
+                {/* Bank details */}
+                {billAlertPayMethod === 'BANK' && (
+                  <div className="flex flex-col gap-2 mb-2">
+                    <select value={billAlertBank.bankName} onChange={e => setBillAlertBank(p => ({ ...p, bankName: e.target.value }))}
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary">
+                      <option value="">Select bank</option>
+                      {['Siddhartha Bank Ltd','Everest Bank Ltd','NIC Asia Bank','Nabil Bank','Himalayan Bank','Global IME Bank','NMB Bank','Sanima Bank'].map(b =>
+                        <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    <input value={billAlertBank.account} onChange={e => setBillAlertBank(p => ({ ...p, account: e.target.value }))}
+                      placeholder="Account number"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
+                    <input value={billAlertBank.holder} onChange={e => setBillAlertBank(p => ({ ...p, holder: e.target.value }))}
+                      placeholder="Account holder name"
+                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
+                  </div>
+                )}
+
                 <div className="flex flex-col gap-3">
                   <button
                     onClick={payBillAlert}
                     disabled={billAlertPaying}
                     className="w-full py-4 bg-primary text-white font-bold rounded-2xl text-base flex items-center justify-center gap-2 disabled:opacity-60"
                   >
-                    {billAlertPaying ? <><Spinner size={20} /> Processing...</> : '⚡ Pay Now'}
+                    {billAlertPaying ? <><Spinner size={20} /> Processing...</> : `⚡ Pay via ${billAlertPayMethod === 'ESEWA' ? 'eSewa' : 'Bank'}`}
                   </button>
                   <button
                     onClick={scheduleBillAlert}
@@ -406,8 +482,8 @@ export default function Dashboard() {
           {QUICK_ACTIONS.map(a => (
             <button key={a.label} onClick={() => navigate(a.path)}
               className="flex flex-col items-center gap-1.5">
-              <div className="w-[52px] h-[52px] rounded-[14px] bg-white border border-gray-100 flex items-center justify-center text-xl shadow-sm">
-                {a.emoji}
+              <div className={`w-[52px] h-[52px] rounded-[14px] ${a.bg} border border-gray-100 flex items-center justify-center shadow-sm ${a.color}`}>
+                {a.icon}
               </div>
               <span className="text-[10.5px] text-gray-700 text-center leading-tight">{a.label}</span>
             </button>
@@ -461,35 +537,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ── Smart Bills (saved biller accounts) ── */}
-        <SmartBillsSection
-          accounts={billerAccounts}
-          onAddNew={() => navigate('/onboarding?step=category')}
-          onSetup={() => navigate('/onboarding?step=category')}
-          onViewAll={() => navigate('/smart-bills')}
-          onPayTrafficFine={(acc) => {
-            const fineAmount = Number((acc.details as Record<string, unknown>)?.fineAmount ?? 0);
-            const q = new URLSearchParams({
-              biller:      acc.billerName,
-              amount:      String(fineAmount),
-              category:    acc.billerCategory,
-              accountId:   acc.customerId,
-              description: `Traffic fine — ${String((acc.details as Record<string, unknown>)?.violation ?? '')}`,
-              dueDate:     '',
-            });
-            navigate(`/bill-alert?${q}`);
-          }}
-          onScheduleTrafficFine={(acc) => {
-            const fineAmount = Number((acc.details as Record<string, unknown>)?.fineAmount ?? 0);
-            const q = new URLSearchParams({
-              name:        `${acc.billerName} — ${acc.customerId}`,
-              amount:      String(fineAmount),
-              recipientId: acc.billerName,
-              description: `Traffic fine — chit ${acc.customerId}`,
-            });
-            navigate(`/schedules/new?${q}`);
-          }}
-        />
+        {/* Smart Bills is now in the Utility Grid below ↓ */}
 
         {/* ── Pending Bills from Merchants ── */}
         <div className="px-3.5 mb-3.5">
@@ -497,69 +545,88 @@ export default function Dashboard() {
             <span className="font-semibold text-gray-800 text-sm">📅 {t('Upcoming Payments')}</span>
             <button onClick={() => navigate('/schedules')} className="text-primary text-xs font-medium">{t('View All')}</button>
           </div>
-          <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden">
-            {loadingBills ? (
-              <div className="flex justify-center py-6"><Spinner /></div>
-            ) : bills.length === 0 && schedules.length === 0 ? (
-              <div className="py-6 text-center">
-                <p className="text-gray-400 text-sm">No pending bills</p>
-                <button onClick={() => navigate('/schedules/new')}
-                  className="text-primary text-xs font-medium mt-1">+ Add Schedule</button>
-              </div>
-            ) : (
-              <>
-                {bills.length > 0 && (
-                  <div className="bg-[#E8F5EE] px-3.5 py-2.5 flex items-center justify-between">
-                    <span className="text-xs font-semibold text-[#15562E]">
-                      {bills.length} Bill{bills.length > 1 ? 's' : ''} Due Soon
-                    </span>
-                    <span className="text-sm font-bold text-primary">
-                      NPR {bills.reduce((s, b) => s + b.amount, 0).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                <div className="grid grid-cols-2 divide-x divide-gray-50">
-                  {bills.slice(0, 4).map(bill => {
-                    const d = daysUntil(bill.dueDate);
-                    const dueLabel = d <= 0 ? 'Overdue!' : d === 1 ? 'Due tomorrow' : `In ${d} days`;
-                    return (
-                      <button key={bill.id} onClick={() => navigateToBill(bill)}
-                        className="flex items-center gap-2.5 p-3 text-left hover:bg-[#E8F5EE] transition-colors border-b border-gray-50">
-                        <div className="w-[34px] h-[34px] rounded-[10px] bg-[#EEF6FF] flex items-center justify-center text-base flex-shrink-0">
-                          🏫
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-semibold text-gray-800 truncate">{bill.merchant?.name ?? 'Merchant'}</p>
-                          <p className="text-[10px] text-gray-400">{dueLabel}</p>
-                        </div>
-                        <p className="text-xs font-semibold text-[#15562E] flex-shrink-0">
-                          NPR {bill.amount.toLocaleString()}
-                        </p>
-                      </button>
-                    );
-                  })}
-                  {/* Scheduled payments */}
-                  {schedules.slice(0, Math.max(0, 4 - bills.length)).map(s => (
-                    <button key={s.id} onClick={() => navigate('/schedules')}
-                      className="flex items-center gap-2.5 p-3 text-left hover:bg-[#E8F5EE] transition-colors border-b border-gray-50">
-                      <div className="w-[34px] h-[34px] rounded-[10px] bg-[#FFF8E6] flex items-center justify-center text-base flex-shrink-0">
-                        💸
+          {loadingBills ? (
+            <div className="flex justify-center py-4"><Spinner /></div>
+          ) : bills.length === 0 && schedules.length === 0 ? (
+            <div className="bg-white border border-gray-100 rounded-2xl py-6 text-center">
+              <p className="text-gray-400 text-sm">No upcoming payments</p>
+              <button onClick={() => navigate('/schedules/new')}
+                className="text-primary text-xs font-medium mt-1">+ Add Schedule</button>
+            </div>
+          ) : (
+            /* ── Horizontal scroll strip ── */
+            <div
+              className="flex gap-3 overflow-x-auto pb-1"
+              style={{ scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' } as React.CSSProperties}
+            >
+              {/* Bill cards */}
+              {bills.slice(0, 5).map(bill => {
+                const d = daysUntil(bill.dueDate);
+                const urgent = d <= 1;
+                const dueLabel = d <= 0 ? 'Overdue!' : d === 1 ? 'Due tomorrow' : `In ${d} days`;
+                return (
+                  <button key={bill.id} onClick={() => navigateToBill(bill)}
+                    style={{ minWidth: 168, maxWidth: 168 }}
+                    className="flex-shrink-0 bg-white border border-gray-100 rounded-2xl p-3 text-left active:scale-[0.98] transition-transform">
+                    {/* Icon + name + amount row */}
+                    <div className="flex items-start gap-2.5">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${urgent ? 'bg-red-50' : 'bg-[#E8F5EE]'}`}>
+                        <BsFileText className={`w-[15px] h-[15px] ${urgent ? 'text-red-500' : 'text-primary'}`} />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-gray-800 truncate">{s.name}</p>
-                        <p className="text-[10px] text-gray-400">
-                          {new Date(s.nextRunAt).toLocaleDateString('en-NP', { day: 'numeric', month: 'short' })}
-                        </p>
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="text-[11px] font-bold text-gray-800 truncate leading-tight">
+                            {bill.merchant?.name ?? 'Merchant'}
+                          </p>
+                          <p className={`text-[11px] font-bold flex-shrink-0 ${urgent ? 'text-red-500' : 'text-primary'}`}>
+                            NPR {bill.amount.toLocaleString()}
+                          </p>
+                        </div>
+                        <p className={`text-[10px] mt-0.5 ${urgent ? 'text-red-400' : 'text-gray-400'}`}>{dueLabel}</p>
                       </div>
-                      <p className="text-xs font-semibold text-[#15562E] flex-shrink-0">
-                        NPR {s.amount.toLocaleString()}
-                      </p>
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+                    </div>
+                    <div className={`mt-2.5 h-[2px] rounded-full ${urgent ? 'bg-red-200' : 'bg-primary/25'}`} />
+                  </button>
+                );
+              })}
+
+              {/* Schedule cards */}
+              {schedules.map(s => {
+                const d = daysUntil(s.nextRunAt);
+                const urgent = d <= 1;
+                const dateLabel = new Date(s.nextRunAt).toLocaleDateString('en-NP', { day: 'numeric', month: 'short' });
+                return (
+                  <button key={s.id} onClick={() => navigate('/schedules')}
+                    style={{ minWidth: 168, maxWidth: 168 }}
+                    className="flex-shrink-0 bg-white border border-gray-100 rounded-2xl p-3 text-left active:scale-[0.98] transition-transform">
+                    <div className="flex items-start gap-2.5">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${urgent ? 'bg-amber-50' : 'bg-[#E8F5EE]'}`}>
+                        <BsCalendarCheck className={`w-[15px] h-[15px] ${urgent ? 'text-amber-500' : 'text-primary'}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-1">
+                          <p className="text-[11px] font-bold text-gray-800 truncate leading-tight">{s.name}</p>
+                          <p className="text-[11px] font-bold text-primary flex-shrink-0">
+                            NPR {s.amount.toLocaleString()}
+                          </p>
+                        </div>
+                        <p className={`text-[10px] mt-0.5 ${urgent ? 'text-amber-400' : 'text-gray-400'}`}>{dateLabel}</p>
+                      </div>
+                    </div>
+                    <div className="mt-2.5 h-[2px] rounded-full bg-primary/25" />
+                  </button>
+                );
+              })}
+
+              {/* + Add card */}
+              <button onClick={() => navigate('/schedules/new')}
+                style={{ minWidth: 80, maxWidth: 80 }}
+                className="flex-shrink-0 bg-gray-50 border border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center gap-1.5 active:scale-95 transition-transform">
+                <HiOutlinePlusSm className="w-5 h-5 text-gray-400" />
+                <p className="text-[9px] font-semibold text-gray-400 text-center leading-tight">Add</p>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ── Utility Grid ── */}
@@ -569,10 +636,16 @@ export default function Dashboard() {
             {UTILITIES.map(u => (
               <button key={u.label} onClick={() => navigate(u.path)}
                 className="flex flex-col items-center gap-1.5">
-                <div className="w-11 h-11 rounded-[12px] bg-[#E8F5EE] flex items-center justify-center text-primary">
+                <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center ${
+                  (u as any).highlight
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-[#E8F5EE] text-primary'
+                }`}>
                   {u.icon}
                 </div>
-                <span className="text-[10px] text-gray-700 text-center">{u.label}</span>
+                <span className={`text-[10px] text-center leading-tight ${(u as any).highlight ? 'font-semibold text-primary' : 'text-gray-700'}`}>
+                  {u.label}
+                </span>
               </button>
             ))}
           </div>
@@ -618,87 +691,103 @@ const CATEGORY_META: Record<string, { icon: React.ReactNode; bg: string; color: 
 };
 
 function SmartBillsSection({
-  accounts, onAddNew, onSetup, onViewAll, onPayTrafficFine, onScheduleTrafficFine,
+  accounts, expanded, onToggle, onAddNew, onSetup, onViewAll, onPayTrafficFine, onScheduleTrafficFine,
 }: {
-  accounts: BillerAccount[];
-  onAddNew: () => void;
-  onSetup: () => void;
-  onViewAll: () => void;
-  onPayTrafficFine: (acc: BillerAccount) => void;
+  accounts:    BillerAccount[];
+  expanded:    boolean;
+  onToggle:    () => void;
+  onAddNew:    () => void;
+  onSetup:     () => void;
+  onViewAll:   () => void;
+  onPayTrafficFine:      (acc: BillerAccount) => void;
   onScheduleTrafficFine: (acc: BillerAccount) => void;
 }) {
   return (
     <div className="px-3.5 mb-3.5">
-      <div className="flex items-center justify-between mb-2.5">
-        <button onClick={onViewAll} className="font-semibold text-gray-800 text-sm hover:text-primary transition-colors">
-          💡 Smart Bills
-        </button>
-        <div className="flex items-center gap-3">
-          {accounts.length > 0 && (
-            <button onClick={onAddNew} className="text-primary text-xs font-medium">+ Add</button>
-          )}
-          {accounts.length > 0 && (
-            <button onClick={onViewAll} className="text-primary text-xs font-medium">View All →</button>
-          )}
+
+      {/* ── Toggle header row ── */}
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-3 bg-white border border-gray-100 rounded-2xl px-4 py-3 shadow-sm active:scale-[0.99] transition-transform"
+      >
+        {/* Icon */}
+        <div className="w-8 h-8 rounded-xl bg-[#E8F5EE] flex items-center justify-center flex-shrink-0">
+          <BsWallet2 className="w-4 h-4 text-primary" />
         </div>
-      </div>
 
-      {accounts.length === 0 ? (
-        // Empty state — tappable card opens onboarding setup
-        <button
-          onClick={onSetup}
-          className="w-full bg-white border-2 border-dashed border-primary/30 rounded-2xl p-5 text-left active:scale-[0.99] transition-transform"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#E8F5EE] flex items-center justify-center text-2xl">
-              💡
-            </div>
-            <div className="flex-1">
-              <p className="text-sm font-bold text-gray-800">No smart bills yet</p>
-              <p className="text-xs text-gray-500 mt-0.5">NEA · KUKL · Internet · TV · Rent · Insurance · School fees…</p>
-            </div>
-            <span className="text-primary font-bold text-xl">+</span>
-          </div>
-        </button>
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {accounts.slice(0, 3).map(acc => {
-            const meta = CATEGORY_META[acc.billerCategory.toUpperCase()] ?? { icon: <BsWallet2 className="w-5 h-5" />, bg: 'bg-gray-50', color: 'text-gray-500' };
-            const isTrafficFine = acc.billerCategory.toUpperCase() === 'TRAFFIC' || acc.billerSlug.includes('traffic');
-            return (
-              <div key={acc.id} className="bg-white border border-gray-100 rounded-2xl p-3.5 shadow-card">
-                <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-2xl ${meta.bg} ${meta.color} flex items-center justify-center flex-shrink-0`}>
-                    {meta.icon}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-gray-800 truncate">{acc.billerName}</p>
-                    <p className="text-[10px] text-gray-400 truncate">ID: {acc.customerId}</p>
-                  </div>
-                  {acc.isVerified ? (
-                    <span className="text-[9px] font-bold text-primary bg-[#E8F5EE] px-2 py-0.5 rounded-full">✓ VERIFIED</span>
-                  ) : (
-                    <button onClick={onViewAll} className="text-[10px] text-primary font-semibold bg-[#E8F5EE] px-2 py-1 rounded-xl">
-                      Fetch Bill →
-                    </button>
-                  )}
+        {/* Title */}
+        <span className="font-semibold text-gray-800 text-sm flex-1 text-left">Smart Bills</span>
+
+        {/* Count badge */}
+        {accounts.length > 0 && (
+          <span className="bg-primary text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+            {accounts.length}
+          </span>
+        )}
+
+        {/* + Add (only when expanded) */}
+        {expanded && accounts.length > 0 && (
+          <button
+            onClick={e => { e.stopPropagation(); onAddNew(); }}
+            className="text-primary text-xs font-semibold px-2 py-1 rounded-lg bg-[#E8F5EE] ml-1"
+          >
+            + Add
+          </button>
+        )}
+
+        {/* Chevron */}
+        {expanded
+          ? <BsChevronUp className="w-4 h-4 text-gray-400 ml-1 flex-shrink-0" />
+          : <BsChevronDown className="w-4 h-4 text-gray-400 ml-1 flex-shrink-0" />}
+      </button>
+
+      {/* ── Expanded content ── */}
+      {expanded && (
+        <div className="mt-2.5">
+          {accounts.length === 0 ? (
+            <button onClick={onSetup}
+              className="w-full bg-white border-2 border-dashed border-primary/30 rounded-2xl p-5 text-left active:scale-[0.99] transition-transform">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-[#E8F5EE] flex items-center justify-center text-2xl">💡</div>
+                <div className="flex-1">
+                  <p className="text-sm font-bold text-gray-800">No smart bills yet</p>
+                  <p className="text-xs text-gray-500 mt-0.5">NEA · KUKL · Internet · TV · Rent · Insurance…</p>
                 </div>
-
-                {/* Traffic fine special treatment */}
-                {isTrafficFine && <TrafficFineDetails
-                  acc={acc} onPay={() => onPayTrafficFine(acc)} onSchedule={() => onScheduleTrafficFine(acc)}
-                />}
-
-                {/* Rent special treatment */}
-                {acc.billerCategory.toUpperCase() === 'RENT' && <RentDetails acc={acc} />}
+                <span className="text-primary font-bold text-xl">+</span>
               </div>
-            );
-          })}
-          {accounts.length > 3 && (
-            <button onClick={onViewAll}
-              className="w-full py-3 border border-gray-100 bg-white rounded-2xl text-primary text-sm font-semibold">
-              View all {accounts.length} bills →
             </button>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {accounts.slice(0, 3).map(acc => {
+                const meta = CATEGORY_META[acc.billerCategory.toUpperCase()] ?? { icon: <BsWallet2 className="w-5 h-5" />, bg: 'bg-gray-50', color: 'text-gray-500' };
+                const isTraffic = acc.billerCategory.toUpperCase() === 'TRAFFIC' || acc.billerSlug.includes('traffic');
+                return (
+                  <div key={acc.id} className="bg-white border border-gray-100 rounded-2xl p-3.5 shadow-card">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-11 h-11 rounded-2xl ${meta.bg} ${meta.color} flex items-center justify-center flex-shrink-0`}>
+                        {meta.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-800 truncate">{acc.billerName}</p>
+                        <p className="text-[10px] text-gray-400 truncate">ID: {acc.customerId}</p>
+                      </div>
+                      {acc.isVerified
+                        ? <span className="text-[9px] font-bold text-primary bg-[#E8F5EE] px-2 py-0.5 rounded-full flex-shrink-0">✓ VERIFIED</span>
+                        : <button onClick={onViewAll} className="text-[10px] text-primary font-semibold bg-[#E8F5EE] px-2 py-1 rounded-xl flex-shrink-0">Fetch →</button>
+                      }
+                    </div>
+                    {isTraffic && <TrafficFineDetails acc={acc} onPay={() => onPayTrafficFine(acc)} onSchedule={() => onScheduleTrafficFine(acc)} />}
+                    {acc.billerCategory.toUpperCase() === 'RENT' && <RentDetails acc={acc} />}
+                  </div>
+                );
+              })}
+              {accounts.length > 3 && (
+                <button onClick={onViewAll}
+                  className="w-full py-3 border border-gray-100 bg-white rounded-2xl text-primary text-sm font-semibold">
+                  View all {accounts.length} bills →
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}

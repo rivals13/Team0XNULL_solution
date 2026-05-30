@@ -1,5 +1,5 @@
 import {
-  Controller, Post, Get, Patch, Body, Req, Query,
+  Controller, Post, Get, Patch, Body, Req, Query, Param,
   UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import {
@@ -56,6 +56,58 @@ export class MerchantController {
   @ApiResponse({ status: 200, description: 'Merchant profile' })
   getProfile(@Req() req: MerchantKeyRequest) {
     return this.service.getProfileById(req.merchant.id);
+  }
+
+  // ─── GET /merchant/by-slug/:slug (public — used by schedule pre-fill) ───────
+
+  @Public()
+  @Get('by-slug/:slug')
+  @ApiOperation({
+    summary: 'Get merchant public details by slug (no auth)',
+    description: 'Returns name, category, eSewa ID and bank accounts for display purposes.',
+  })
+  getBySlug(@Param('slug') slug: string) {
+    return this.service.getBySlug(slug);
+  }
+
+  // ─── GET /merchant/list (user-facing — JWT) ───────────────────────────────
+
+  @Get('list')
+  @ApiBearerAuth('JWT')
+  @ApiOperation({
+    summary: 'List all active merchants (user-facing)',
+    description: 'Returns name, slug, category, eSewa ID and whether bill-inquiry is supported.',
+  })
+  listAll() {
+    return this.service.listActive();
+  }
+
+  // ─── GET /merchant/:slug/clients (admin) ──────────────────────────────────
+
+  @Roles(UserRole.ADMIN)
+  @Get(':slug/clients')
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'List all customer accounts for a merchant slug (ADMIN)' })
+  getClients(@Param('slug') slug: string) {
+    return this.service.getClientsBySlug(slug);
+  }
+
+  // ─── Admin overview endpoints ─────────────────────────────────────────────
+
+  @Roles(UserRole.ADMIN)
+  @Get('admin/biller-accounts')
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'List ALL biller accounts in the system (ADMIN)' })
+  adminBillerAccounts() {
+    return this.service.adminListBillerAccounts();
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Get('admin/bills')
+  @ApiBearerAuth('JWT')
+  @ApiOperation({ summary: 'List ALL bills in the system (ADMIN)' })
+  adminBills() {
+    return this.service.adminListBills();
   }
 
   // ─── POST /merchant/push-bill ──────────────────────────────────────────────

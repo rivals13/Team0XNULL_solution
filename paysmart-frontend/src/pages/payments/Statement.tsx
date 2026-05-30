@@ -1,3 +1,4 @@
+import { IoChevronBack } from 'react-icons/io5';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { transactionsApi, paymentsApi } from '../../api';
@@ -58,7 +59,7 @@ export default function Statement() {
       <div className="bg-primary px-5 pt-12 pb-6 rounded-b-[32px]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate(-1)} className="text-white text-xl">←</button>
+            <button onClick={() => navigate(-1)} className="text-white flex items-center justify-center w-8 h-8 rounded-xl bg-white/15 active:bg-white/25"><IoChevronBack className="w-5 h-5" /></button>
             <h1 className="text-white font-bold text-xl">Transaction History</h1>
           </div>
           {balance !== null && (

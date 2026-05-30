@@ -223,6 +223,121 @@ export class MerchantService {
     return merchant;
   }
 
+  // ─── GET /merchant/by-slug/:slug (public — for schedule pre-fill) ──────────
+
+  /** Public merchant details — eSewa ID and/or bank accounts for payment display. */
+  async getBySlug(slug: string) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where: { slug },
+      select: { id: true, name: true, slug: true, category: true, description: true, paymentMethods: true },
+    });
+    if (!merchant) throw new NotFoundException(`Merchant "${slug}" not found`);
+    const pm = merchant.paymentMethods as any ?? {};
+    return {
+      id:       merchant.id,
+      name:     merchant.name,
+      slug:     merchant.slug,
+      category: merchant.category,
+      esewaId:  pm.esewa ?? null,
+      banks:    (pm.banks ?? []) as Array<{
+        bankName: string; accountNumber: string; accountHolder: string; branchCode?: string;
+      }>,
+    };
+  }
+
+  // ─── GET /merchants (user-facing list) ───────────────────────────────────
+
+  /** All active merchants — name, slug, category, eSewa payment ID, billInquiryUrl flag. */
+  async listActive() {
+    const merchants = await this.prisma.merchant.findMany({
+      where:   { isActive: true },
+      orderBy: { name: 'asc' },
+      select: {
+        id:             true,
+        name:           true,
+        slug:           true,
+        category:       true,
+        description:    true,
+        paymentMethods: true,
+        billInquiryUrl: true, // expose as boolean flag only (not the raw URL for security)
+        _count: { select: { billerAccounts: true } },
+      },
+    });
+
+    return merchants.map(m => ({
+      id:               m.id,
+      name:             m.name,
+      slug:             m.slug,
+      category:         m.category,
+      description:      m.description ?? '',
+      esewaId:          (m.paymentMethods as any)?.esewa ?? null,
+      hasBillInquiry:   !!m.billInquiryUrl,
+      totalAccounts:    m._count.billerAccounts,
+    }));
+  }
+
+  /** List all biller accounts (customers) for a given merchant slug — for admin/debug view. */
+  async getClientsBySlug(slug: string) {
+    const merchant = await this.prisma.merchant.findUnique({
+      where:   { slug },
+      include: {
+        billerAccounts: {
+          select: {
+            id:            true,
+            accountNumber: true,  // the customer ID (not encrypted)
+            nickname:      true,
+            isVerified:    true,
+            createdAt:     true,
+            user: { select: { id: true, name: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        },
+      },
+    });
+    if (!merchant) throw new NotFoundException(`Merchant "${slug}" not found`);
+    return {
+      merchant: { id: merchant.id, name: merchant.name, slug: merchant.slug, category: merchant.category },
+      clients:  merchant.billerAccounts.map(a => ({
+        id:          a.id,
+        customerId:  a.accountNumber,
+        nickname:    a.nickname,
+        isVerified:  a.isVerified,
+        userName:    a.user?.name ?? 'Unknown',
+        addedAt:     a.createdAt,
+      })),
+    };
+  }
+
+  // ─── Admin endpoints ─────────────────────────────────────────────────────
+
+  async adminListBillerAccounts() {
+    const accounts = await this.prisma.billerAccount.findMany({
+      include: {
+        merchant: { select: { name: true, slug: true, category: true } },
+        user:     { select: { id: true, name: true, email: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+    return accounts.map(a => ({
+      id:          a.id,
+      customerId:  a.accountNumber,
+      nickname:    a.nickname,
+      isVerified:  a.isVerified,
+      createdAt:   a.createdAt,
+      merchant:    a.merchant,
+      user:        { id: a.user?.id, name: a.user?.name },
+    }));
+  }
+
+  async adminListBills() {
+    return this.prisma.bill.findMany({
+      include: { merchant: { select: { name: true, slug: true } } },
+      orderBy: { createdAt: 'desc' },
+      take: 200,
+    });
+  }
+
   // ─── Helpers ─────────────────────────────────────────────────────────────
 
   private normalizePhone(phone: string): string {

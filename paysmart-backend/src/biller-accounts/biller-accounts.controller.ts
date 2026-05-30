@@ -11,8 +11,8 @@ import { BillInquiryService } from '../bill-inquiry/bill-inquiry.service';
 @Controller('biller-accounts')
 export class BillerAccountsController {
   constructor(
-    private readonly service: BillerAccountsService,
-    private readonly billInquiry: BillInquiryService,
+    private readonly service:      BillerAccountsService,
+    private readonly billInquiry:  BillInquiryService,
   ) {}
 
   @Get()
@@ -23,20 +23,17 @@ export class BillerAccountsController {
 
   @Post()
   @ApiOperation({
-    summary: 'Save a new biller account (NEA SC No., KUKL client code, school ID, traffic chit, etc.)',
-    description: 'Auto-creates the Merchant row by slug if it does not already exist.',
+    summary: 'Save a new biller account',
+    description:
+      'Auto-creates the Merchant row by slug if needed. ' +
+      'Immediately checks mock merchant for pending bill and queues a 20-second WS notification.',
   })
   create(@CurrentUser() user: any, @Body() dto: CreateBillerAccountDto) {
     return this.service.create(user.id, dto);
   }
 
   @Post(':id/check-bill')
-  @ApiOperation({
-    summary: 'Manually fetch the latest bill for a saved biller account',
-    description:
-      'Calls the merchant\'s billInquiryUrl, saves a new bill to DB if not already recorded, ' +
-      'and sends a WebSocket notification. Returns bill details or { noBill: true }.',
-  })
+  @ApiOperation({ summary: 'Manually fetch the latest bill for a saved biller account' })
   checkBill(@Param('id') id: string, @Req() req: Request & { user: { id: string } }) {
     return this.billInquiry.checkBillForAccount(id, req.user.id);
   }

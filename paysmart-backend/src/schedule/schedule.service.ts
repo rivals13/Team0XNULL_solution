@@ -261,6 +261,23 @@ export class ScheduleService {
           removeOnComplete: 100,
         },
       );
+
+      // Increment execution count; auto-complete when maxOccurrences reached
+      const newCount = schedule.executedCount + 1;
+      const limitReached = schedule.maxOccurrences > 0 && newCount >= schedule.maxOccurrences;
+      await this.prisma.schedule.update({
+        where: { id: schedule.id },
+        data: {
+          executedCount: newCount,
+          ...(limitReached ? { status: ScheduleStatus.COMPLETED } : {}),
+        },
+      });
+
+      if (limitReached) {
+        this.logger.log(
+          `[Cron] Schedule ${schedule.id} completed — reached maxOccurrences (${schedule.maxOccurrences})`,
+        );
+      }
     }
   }
 

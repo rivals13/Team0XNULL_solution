@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { schedulesApi } from '../../api';
+import { schedulesApi, merchantListApi } from '../../api';
 import Spinner from '../../components/Spinner';
 import {
-  BsWallet2, BsLightningCharge, BsWifi, BsTv, BsHouseDoor, BsShield,
+  BsLightningCharge, BsWifi, BsTv, BsHouseDoor, BsShield, BsBank2, BsChevronDown, BsChevronUp,
 } from 'react-icons/bs';
+import { IoChevronBack } from 'react-icons/io5';
 import { FaWater } from 'react-icons/fa';
 import { IoSchoolOutline } from 'react-icons/io5';
 import { RiCarLine } from 'react-icons/ri';
 import { MdOutlineSend } from 'react-icons/md';
+
+const NEPAL_BANKS = [
+  'Siddhartha Bank Ltd', 'Everest Bank Ltd', 'NIC Asia Bank',
+  'Nepal Investment Mega Bank', 'Nabil Bank', 'Standard Chartered Bank',
+  'Himalayan Bank', 'Global IME Bank', 'Kumari Bank', 'Laxmi Sunrise Bank',
+  'Citizens Bank', 'Prime Commercial Bank', 'NMB Bank', 'Sanima Bank',
+  'Machhapuchchhre Bank',
+];
 
 // ── Bill categories for manual schedule creation ──────────────────────────────
 const BILL_CATEGORIES = [
@@ -50,29 +59,20 @@ const BILL_CATEGORIES = [
     accountLabel: 'eSewa / Bank Account No.', accountPlaceholder: 'Recipient payment number' },
 ];
 
-const ESEWA_LOGO = (
-  <img
-    src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
-    style={{ width: '22px', height: '22px', objectFit: 'contain', borderRadius: '5px' }}
-    alt="eSewa"
-  />
-);
-
-const PROVIDERS: Array<{ id: string; label: string; logo: React.ReactNode }> = [
-  { id: 'ESEWA',  label: 'eSewa',           logo: ESEWA_LOGO },
-  { id: 'WALLET', label: 'PaySmart Wallet', logo: <BsWallet2 className="w-5 h-5 text-primary" /> },
-];
-
 const FREQUENCIES = ['ONCE', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY'];
 
 export default function NewSchedule() {
   const navigate   = useNavigate();
   const [params]   = useSearchParams();
 
-  // ── Is this pre-filled from a merchant bill? ──────────────────────────────
-  const fromMerchant     = !!params.get('amount');
-  const merchantName     = params.get('recipientId') ?? params.get('name') ?? '';  // display only
-  const paymentAccount   = params.get('paymentAccount') ?? merchantName;            // actual eSewa/bank no.
+  // ── Smart Bills pre-fill detection ───────────────────────────────────────
+  const fromSmartBill    = params.get('fromSmartBill') === 'true';
+  const fromMerchant     = fromSmartBill || !!params.get('amount');
+  const merchantName     = params.get('billerName') ?? params.get('recipientId') ?? params.get('name') ?? '';
+  const merchantSlug     = params.get('merchantSlug') ?? '';
+  const customerIdParam  = params.get('customerId')  ?? '';
+  const billerCategory   = params.get('billerCategory') ?? '';
+  const paymentAccount   = params.get('paymentAccount') ?? merchantName;  // legacy (non-SmartBill) path
 
   // ── Category selection (manual mode only) ──────────────────────────────────
   const [selectedCat, setSelectedCat] = useState<string | null>(null);
@@ -80,13 +80,16 @@ export default function NewSchedule() {
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const [form, setForm] = useState({
-    name:        params.get('name')        ?? '',
-    amount:      params.get('amount')      ?? '',
-    provider:    'ESEWA',
-    accountId:   '',              // landlord name / SC no. / client code / student ID
-    recipientId: paymentAccount,  // actual payment identifier (eSewa / bank no.)
-    rentAddress: '',              // property address — only used when category = RENT
-    frequency:   'MONTHLY',
+    name:           params.get('name')   ?? '',
+    amount:         params.get('amount') ?? '',
+    provider:       'ESEWA',
+    accountId:      '',   // landlord name / SC no. / client code / student ID
+    recipientId:    params.get('fromSmartBill') === 'true'
+      ? (params.get('billerName') ?? '')
+      : paymentAccount,
+    rentAddress:    '',   // property address — only used when category = RENT
+    maxOccurrences: '',   // '' = unlimited, '1'–'10' = limit
+    frequency:      'MONTHLY',
     nextRunAt: (() => {
       const due = params.get('dueDate');
       if (!due) return '';
@@ -108,6 +111,27 @@ export default function NewSchedule() {
     pushNotification: true,
     partialPayment:   false,
   });
+
+  // Merchant payment details (fetched when fromSmartBill=true)
+  const [merchantDetails, setMerchantDetails] = useState<{
+    esewaId: string | null;
+    banks: Array<{ bankName: string; accountNumber: string; accountHolder: string }>;
+  } | null>(null);
+
+  // Fetch merchant by slug when coming from Smart Bills
+  useEffect(() => {
+    if (!fromSmartBill || !merchantSlug) return;
+    merchantListApi.getBySlug(merchantSlug)
+      .then(m => setMerchantDetails({ esewaId: m.esewaId, banks: m.banks }))
+      .catch(() => setMerchantDetails(null));
+  }, [fromSmartBill, merchantSlug]);
+
+  // ── Optional backup bank account ─────────────────────────────────────────
+  const [showBackupBank, setShowBackupBank] = useState(false);
+  const [backupBank,     setBackupBank]     = useState({ bankName: '', account: '', holder: '' });
+  const setB = (k: keyof typeof backupBank) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+      setBackupBank(p => ({ ...p, [k]: e.target.value }));
 
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -161,33 +185,41 @@ export default function NewSchedule() {
       return;
     }
 
-    // Build final recipientId: for manual, use accountId as the payment ID
-    const finalRecipientId = fromMerchant
-      ? form.recipientId
+    // Payment always goes through eSewa by default
+    let finalRecipientId = fromSmartBill
+      ? (form.recipientId || merchantName)
       : (form.recipientId || form.accountId || '');
 
     if (!finalRecipientId) {
-      setError('Please enter a payment account number or the bill ID.');
+      setError('Please enter a payment account number or recipient.');
       return;
     }
 
+    const finalProvider = 'ESEWA';
+
     setLoading(true);
     try {
-      await schedulesApi.create({
-        name:        form.name,
-        amount:      Number(form.amount),
-        provider:    form.provider,
-        recipientId: finalRecipientId,
-        frequency:   form.frequency,
-        nextRunAt:   chosen.toISOString(),
+      const maxOcc = form.maxOccurrences ? Number(form.maxOccurrences) : 0;
+      const newSchedule = await schedulesApi.create({
+        name:           form.name,
+        amount:         Number(form.amount),
+        provider:       finalProvider,
+        recipientId:    finalRecipientId,
+        frequency:      form.frequency,
+        nextRunAt:      chosen.toISOString(),
+        maxOccurrences: maxOcc,
         description: [
           form.description,
+          fromSmartBill && merchantSlug  ? `[merchant:${merchantSlug}]`         : '',
+          fromSmartBill && customerIdParam ? `[customerId:${customerIdParam}]`  : '',
           selectedCat === 'RENT' && form.rentAddress ? `Property: ${form.rentAddress}` : '',
           prefs.autoPayEnabled   ? '[AUTO-PAY]' : '',
           prefs.smsReminder      ? '[SMS]'       : '',
           prefs.pushNotification ? '[PUSH]'      : '',
         ].filter(Boolean).join(' '),
       });
+      // Notify Dashboard + Schedules page to add this immediately (no reload)
+      window.dispatchEvent(new CustomEvent('scheduleCreated', { detail: newSchedule }));
       setSuccess(true);
       setTimeout(() => navigate('/schedules'), 2500);
     } catch (err: unknown) {
@@ -223,27 +255,27 @@ export default function NewSchedule() {
       {/* Header */}
       <div className="bg-primary px-5 pt-12 pb-6 rounded-b-[32px]">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate(-1)} className="text-white text-xl">←</button>
+          <button onClick={() => navigate(-1)} className="text-white flex items-center justify-center w-8 h-8 rounded-xl bg-white/15 active:bg-white/25">
+            <IoChevronBack className="w-5 h-5" />
+          </button>
           <div>
             <h1 className="text-white font-bold text-xl">
-              {fromMerchant ? 'Schedule Payment' : 'New Schedule'}
+              {fromSmartBill ? '📅 Schedule Smart Bill' : fromMerchant ? 'Schedule Payment' : 'New Schedule'}
             </h1>
-            {fromMerchant && (
+            {fromSmartBill && (
+              <p className="text-white/70 text-xs mt-0.5">Pre-filled from Smart Bills — {merchantName}</p>
+            )}
+            {fromMerchant && !fromSmartBill && (
               <p className="text-white/70 text-xs mt-0.5">Bill from {merchantName}</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Reminder banner */}
-      <div className="mx-5 mt-5 bg-blue-50 border border-blue-100 rounded-2xl px-4 py-3 flex gap-3 items-start">
-        <span className="text-xl">⏰</span>
-        <div>
-          <p className="text-blue-700 text-sm font-semibold">Auto reminders included</p>
-          <p className="text-blue-500 text-xs mt-0.5">
-            SMS + push notification <strong>1 day before</strong> and <strong>1 hour before</strong>. Enable auto-pay below to pay automatically.
-          </p>
-        </div>
+      {/* Reminder banner — single tight line */}
+      <div className="mx-5 mt-2 flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-100 rounded-lg">
+        <span className="text-[11px]">⏰</span>
+        <p className="text-blue-500 text-[10px]">SMS + push reminder <strong>1 day</strong> &amp; <strong>1 hour</strong> before • Enable auto-pay below</p>
       </div>
 
       <form onSubmit={submit} className="px-5 pt-5 pb-10 flex flex-col gap-5">
@@ -252,9 +284,91 @@ export default function NewSchedule() {
         )}
 
         {/* ═══════════════════════════════════════════════════════════════════
-            MERCHANT BILL MODE — company name + payment account both locked
+            SMART BILLS MODE — merchant + customer ID pre-filled and locked
             ═══════════════════════════════════════════════════════════════════ */}
-        {fromMerchant && (
+        {fromSmartBill && (
+          <div className="bg-[#E8F5EE] border border-primary/20 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-base">📌</span>
+              <p className="text-xs font-bold text-primary uppercase tracking-wide">Pre-filled from Smart Bills</p>
+            </div>
+
+            {/* Merchant name — locked */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">Merchant / Biller</label>
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
+                <span className="flex-1 text-gray-800 font-semibold text-sm">{merchantName}</span>
+                <span className="text-gray-300 text-xs">🔒</span>
+              </div>
+            </div>
+
+            {/* Customer / Account ID — locked */}
+            <div>
+              <label className="text-xs font-medium text-gray-500 mb-1 block">
+                Your Account / Customer ID
+              </label>
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
+                <span className="flex-1 font-mono text-sm text-gray-800 font-semibold">{customerIdParam}</span>
+                <span className="text-gray-300 text-xs">🔒</span>
+              </div>
+              <p className="text-gray-400 text-[10px] mt-1 px-1">
+                Automatically filled from your Smart Bills account
+              </p>
+            </div>
+
+            {/* Merchant payment method — show ONLY ONE: eSewa preferred over bank */}
+            {merchantDetails && (merchantDetails.esewaId || merchantDetails.banks?.length > 0) && (
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">
+                  Merchant Payment Details
+                </label>
+                {merchantDetails.esewaId ? (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
+                    <img
+                      src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
+                      style={{ width: 20, height: 20, objectFit: 'contain', borderRadius: 4 }}
+                      alt="eSewa"
+                    />
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-400">eSewa ID</p>
+                      <p className="font-mono font-semibold text-sm text-gray-800">{merchantDetails.esewaId}</p>
+                    </div>
+                    <span className="text-gray-300 text-xs">🔒</span>
+                  </div>
+                ) : merchantDetails.banks?.[0] ? (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
+                    <span className="text-lg">🏦</span>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-gray-400">{merchantDetails.banks[0].bankName}</p>
+                      <p className="font-mono font-semibold text-sm text-gray-800">{merchantDetails.banks[0].accountNumber}</p>
+                      <p className="text-[10px] text-gray-400">{merchantDetails.banks[0].accountHolder}</p>
+                    </div>
+                    <span className="text-gray-300 text-xs">🔒</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
+                    <span className="text-gray-400 text-sm">Direct Payment</span>
+                  </div>
+                )}
+                <p className="text-gray-400 text-[10px] mt-1 px-1">
+                  Payment goes directly to merchant — auto-filled for security
+                </p>
+              </div>
+            )}
+
+            {/* Loading merchant details */}
+            {fromSmartBill && merchantSlug && merchantDetails === null && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-100">
+                <span className="text-gray-400 text-xs animate-pulse">Fetching merchant details…</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ═══════════════════════════════════════════════════════════════════
+            LEGACY MERCHANT BILL MODE — company name + payment account locked
+            ═══════════════════════════════════════════════════════════════════ */}
+        {fromMerchant && !fromSmartBill && (
           <div className="bg-gray-50 rounded-2xl p-4 flex flex-col gap-3">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Paying To</p>
 
@@ -414,27 +528,60 @@ export default function NewSchedule() {
               />
             </div>
 
-            {/* Payment provider */}
-            <div>
-              <label className="text-sm font-medium text-gray-600 mb-2 block">Pay via</label>
-              <div className="flex gap-2">
-                {PROVIDERS.map(p => (
-                  <button
-                    key={p.id} type="button"
-                    onClick={() => setForm(f => ({ ...f, provider: p.id }))}
-                    className={`flex-1 flex flex-col items-center gap-1 py-3 rounded-2xl border-2 transition-colors ${
-                      form.provider === p.id
-                        ? 'border-primary bg-[#E8F5EE]'
-                        : 'border-gray-100 bg-gray-50'
-                    }`}
-                  >
-                    <span className="flex items-center justify-center w-6 h-6">{p.logo}</span>
-                    <span className={`text-[11px] font-semibold ${form.provider === p.id ? 'text-primary' : 'text-gray-500'}`}>
-                      {p.label === 'PaySmart Wallet' ? 'Wallet' : p.label}
-                    </span>
-                  </button>
-                ))}
+            {/* ── Default payment: eSewa notice ── */}
+            <div className="bg-[#E8F5EE] border border-primary/20 rounded-2xl px-4 py-3 flex items-center gap-3">
+              <img
+                src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
+                style={{ width: 22, height: 22, objectFit: 'contain', borderRadius: 5 }}
+                alt="eSewa"
+              />
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-primary">Paying via eSewa</p>
+                <p className="text-[11px] text-gray-500">Payment is processed through your eSewa account</p>
               </div>
+            </div>
+
+            {/* ── Backup bank account (optional, collapsible) ── */}
+            <div>
+              <button type="button"
+                onClick={() => setShowBackupBank(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-sm text-gray-600 font-medium">
+                <div className="flex items-center gap-2">
+                  <BsBank2 className="w-4 h-4 text-gray-400" />
+                  <span>Backup Bank Account</span>
+                  <span className="text-[10px] text-gray-400 font-normal">(optional)</span>
+                </div>
+                {showBackupBank
+                  ? <BsChevronUp className="w-4 h-4 text-gray-400" />
+                  : <BsChevronDown className="w-4 h-4 text-gray-400" />}
+              </button>
+              {showBackupBank && (
+                <div className="mt-2 bg-gray-50 border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
+                  <p className="text-[11px] text-gray-500 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                    💡 Used automatically if eSewa balance is insufficient on payment day
+                  </p>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Bank Name</label>
+                    <select value={backupBank.bankName} onChange={setB('bankName')}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary">
+                      <option value="">Select bank (optional)</option>
+                      {NEPAL_BANKS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Account Number</label>
+                    <input value={backupBank.account} onChange={setB('account')}
+                      placeholder="Enter account number"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-500 mb-1 block">Account Holder Name</label>
+                    <input value={backupBank.holder} onChange={setB('holder')}
+                      placeholder="Name on bank account"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Frequency */}
@@ -468,6 +615,36 @@ export default function NewSchedule() {
                 className="w-full px-4 py-4 rounded-2xl border border-gray-200 bg-gray-50 text-base focus:outline-none focus:border-primary"
               />
             </div>
+
+            {/* Max occurrences — only for repeating frequencies */}
+            {form.frequency !== 'ONCE' && (
+              <div>
+                <label className="text-sm font-medium text-gray-600 mb-1 block">
+                  How many times? <span className="text-gray-400 text-xs font-normal">(max 10)</span>
+                </label>
+                <input
+                  type="number" value={form.maxOccurrences}
+                  onChange={e => {
+                    const v = e.target.value;
+                    if (v !== '' && (Number(v) < 1 || Number(v) > 10)) return;
+                    setForm(p => ({ ...p, maxOccurrences: v }));
+                  }}
+                  min="1" max="10" placeholder="Unlimited (leave blank)"
+                  className="w-full px-4 py-4 rounded-2xl border border-gray-200 bg-gray-50 text-base focus:outline-none focus:border-primary"
+                />
+                {form.maxOccurrences && (
+                  <p className="text-gray-400 text-[11px] mt-1 px-1">
+                    {{
+                      DAILY: `Max ${form.maxOccurrences} days`,
+                      WEEKLY: `Max ${form.maxOccurrences} weeks`,
+                      BIWEEKLY: `Max ${form.maxOccurrences} bi-weekly payments`,
+                      MONTHLY: `Max ${form.maxOccurrences} months`,
+                      YEARLY: `Max ${form.maxOccurrences} years`,
+                    }[form.frequency] ?? `${form.maxOccurrences} payments`}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Description */}
             <div>
@@ -518,7 +695,7 @@ export default function NewSchedule() {
               <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex gap-2.5 items-start">
                 <span className="text-amber-500 text-lg">⚠</span>
                 <p className="text-amber-700 text-xs leading-relaxed">
-                  <strong>Auto-pay is ON.</strong> NPR {form.amount || '—'} will be automatically deducted from {PROVIDERS.find(p => p.id === form.provider)?.label ?? form.provider} on the scheduled date. Ensure sufficient balance.
+                  <strong>Auto-pay is ON.</strong> NPR {form.amount || '—'} will be automatically deducted via eSewa on the scheduled date. Ensure sufficient balance.
                 </p>
               </div>
             )}
