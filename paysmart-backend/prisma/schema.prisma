@@ -104,6 +104,8 @@ enum NotificationType {
 
 enum MerchantCategory {
   UTILITY
+  ELECTRICITY
+  WATER
   TELECOM
   INTERNET
   INSURANCE
@@ -113,6 +115,8 @@ enum MerchantCategory {
   ENTERTAINMENT
   FINANCE
   RETAIL
+  TV
+  TRAFFIC
   OTHER
 
   @@schema("paysmart")
@@ -167,10 +171,12 @@ model Merchant {
   website     String?
   isActive    Boolean          @default(true)
   // Self-registered merchant (MERCHANT-role user) fields
-  userId      String?          @unique   // links to User.id
-  apiKey      String           @unique   @default(cuid())
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  userId            String?          @unique   // links to User.id
+  apiKey            String           @unique   @default(cuid())
+  billInquiryUrl    String?          @map("bill_inquiry_url")
+  billInquiryApiKey String?          @map("bill_inquiry_api_key")  // AES-256-GCM encrypted
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
 
   /// Stores eSewa ID, Khalti ID and bank accounts as JSON:
   /// { esewa?: string, khalti?: string, banks?: [{bankName,accountNumber,accountHolder,branchCode?}] }

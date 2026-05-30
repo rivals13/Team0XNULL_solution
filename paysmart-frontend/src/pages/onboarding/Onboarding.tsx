@@ -71,6 +71,22 @@ const CATEGORIES: Array<{
       { slug: 'nepal-traffic-police', name: 'Nepal Traffic Police', description: 'e-Challan system' },
     ],
   },
+  {
+    id: 'rent', label: 'House Rent', emoji: '🏠', color: 'bg-orange-50 border-orange-200',
+    providers: [
+      { slug: 'house-rent', name: 'Monthly Rent', description: 'Track & pay monthly house rent' },
+    ],
+  },
+  {
+    id: 'insurance', label: 'Insurance', emoji: '🛡️', color: 'bg-green-50 border-green-200',
+    providers: [
+      { slug: 'nepal-life',  name: 'Nepal Life Insurance',    description: 'Nepal Life Insurance Company Ltd.' },
+      { slug: 'prime-life',  name: 'Prime Life Insurance',    description: 'Prime Life Insurance Company Ltd.' },
+      { slug: 'nlic',        name: 'NLIC',                    description: 'National Life Insurance Co. Ltd.' },
+      { slug: 'prabhu-life', name: 'Prabhu Life Insurance',   description: 'Prabhu Life Insurance Co. Ltd.' },
+      { slug: 'other-insurance', name: 'Other Insurance',     description: 'Any other insurance company' },
+    ],
+  },
 ];
 
 const FISCAL_YEARS = ['2080/81', '2081/82', '2082/83'];
@@ -157,11 +173,20 @@ export default function Onboarding() {
         fullDetails.fineAmount = trafficResult.amount;
       }
 
+      // For rent, store extra details so the dashboard Rent card can display them
+      if (category === 'rent') {
+        fullDetails.landlordName    = form.landlordName;
+        fullDetails.propertyAddress = form.propertyAddress;
+        fullDetails.rentAmount      = Number(form.rentAmount);
+        fullDetails.dueDay          = form.dueDay || '1';
+      }
+
       const created = await billerAccountsApi.create({
-        billerName:    provider.name,
+        billerName:    category === 'rent' ? `Rent — ${form.propertyAddress}` : provider.name,
         billerSlug:    provider.slug,
         billerCategory: category,
-        customerId:    customerId || form.chitNumber || form.studentId || form.clientCode || '',
+        customerId:    customerId || form.landlordName || form.policyNumber
+                        || form.chitNumber || form.studentId || form.clientCode || '',
         details:       fullDetails,
       });
       setSavedBillerName(created.billerName);
@@ -196,6 +221,14 @@ export default function Onboarding() {
       if (!form.chitNumber?.trim()) { setError('Chit number is required'); return false; }
       if (!form.fiscalYear)          { setError('Please select fiscal year'); return false; }
       if (!form.province)            { setError('Please select province'); return false; }
+    } else if (category === 'rent') {
+      if (!form.landlordName?.trim())    { setError('Landlord name is required'); return false; }
+      if (!form.propertyAddress?.trim()) { setError('Property address is required'); return false; }
+      if (!form.rentAmount?.trim() || Number(form.rentAmount) <= 0) {
+        setError('Please enter monthly rent amount (NPR)'); return false;
+      }
+    } else if (category === 'insurance') {
+      if (!form.policyNumber?.trim()) { setError('Policy number is required'); return false; }
     }
     return true;
   };
@@ -491,6 +524,79 @@ function DetailsForm({
           </>
         )}
 
+        {/* ───────── House Rent ───────── */}
+        {category === 'rent' && (
+          <>
+            <div className="bg-orange-50 border border-orange-200 rounded-2xl px-4 py-3 flex gap-3 items-start mb-1">
+              <span className="text-orange-500 text-xl">🏠</span>
+              <div>
+                <p className="text-orange-700 text-sm font-bold">Monthly Rent Tracker</p>
+                <p className="text-orange-600 text-xs mt-0.5">
+                  You'll get a reminder 3 days before rent is due each month.
+                </p>
+              </div>
+            </div>
+            <Field label="Landlord Name" required>
+              <Input value={form.landlordName ?? ''} onChange={v => set('landlordName', v)} placeholder="e.g. Ram Prasad Sharma" />
+            </Field>
+            <Field label="Property Address" required>
+              <Input value={form.propertyAddress ?? ''} onChange={v => set('propertyAddress', v)} placeholder="e.g. Baluwatar-4, Kathmandu" />
+            </Field>
+            <Field label="Monthly Rent Amount (NPR)" required>
+              <input
+                type="number" min="1" step="1"
+                value={form.rentAmount ?? ''}
+                onChange={e => set('rentAmount', e.target.value)}
+                placeholder="e.g. 15000"
+                className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-gray-50 text-gray-800 text-base focus:outline-none focus:border-primary focus:bg-white"
+              />
+            </Field>
+            <Field label="Rent Due Day of Month" hint="Optional">
+              <Select
+                value={form.dueDay ?? ''}
+                onChange={v => set('dueDay', v)}
+                placeholder="Select due day"
+                options={['1st', '5th', '7th', '10th', '15th', '20th', '25th', 'Last day']}
+              />
+            </Field>
+            <Field label="Landlord's eSewa / Bank No." hint="Optional">
+              <Input value={form.landlordPayment ?? ''} onChange={v => set('landlordPayment', v)} placeholder="Landlord eSewa number or bank account" />
+            </Field>
+          </>
+        )}
+
+        {/* ───────── Insurance ───────── */}
+        {category === 'insurance' && (
+          <>
+            <Field label="Policy Number" required>
+              <Input value={form.policyNumber ?? ''} onChange={v => set('policyNumber', v)} placeholder="e.g. NLI-2026-001234" />
+            </Field>
+            <Field label="Sum Assured / Plan Name" hint="Optional">
+              <Input value={form.planName ?? ''} onChange={v => set('planName', v)} placeholder="e.g. Endowment Plan, 15-year term" />
+            </Field>
+            <Field label="Premium Amount (NPR)" hint="Optional">
+              <input
+                type="number" min="1" step="1"
+                value={form.premiumAmount ?? ''}
+                onChange={e => set('premiumAmount', e.target.value)}
+                placeholder="e.g. 5000"
+                className="w-full px-4 py-3.5 rounded-2xl border border-gray-200 bg-gray-50 text-gray-800 text-base focus:outline-none focus:border-primary focus:bg-white"
+              />
+            </Field>
+            <Field label="Premium Frequency" hint="Optional">
+              <Select
+                value={form.premiumFrequency ?? ''}
+                onChange={v => set('premiumFrequency', v)}
+                placeholder="Select frequency"
+                options={['Monthly', 'Quarterly', 'Half-yearly', 'Annually']}
+              />
+            </Field>
+            <Field label="Registered Phone Number" hint="Optional">
+              <Input value={form.phone ?? ''} onChange={v => set('phone', v)} placeholder="e.g. 9801234567" />
+            </Field>
+          </>
+        )}
+
         {/* ───────── Traffic Fine (e-Challan) ───────── */}
         {category === 'traffic' && (
           <>
@@ -551,7 +657,11 @@ function DetailsForm({
         disabled={saving || (category === 'traffic' && !trafficResult)}
         className="w-full py-4 bg-primary text-white font-bold rounded-2xl mt-8 flex items-center justify-center gap-2 disabled:opacity-60 active:scale-95 transition-transform"
       >
-        {saving ? <><Spinner size={20} /> Saving...</> : (category === 'traffic' ? '💾 Save & Track' : '✓ Verify & Save')}
+        {saving ? <><Spinner size={20} /> Saving...</> :
+          category === 'traffic'   ? '💾 Save & Track Fine' :
+          category === 'rent'      ? '🏠 Save Rent Account' :
+          category === 'insurance' ? '🛡️ Save Insurance'   :
+          '✓ Verify & Save'}
       </button>
     </div>
   );

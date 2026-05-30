@@ -156,4 +156,7 @@ export const billerAccountsApi = {
 
   remove: (id: string) =>
     client.delete(`/biller-accounts/${id}`).then(r => r.data),
+
+  checkBill: (id: string) =>
+    client.post(`/biller-accounts/${id}/check-bill`).then(r => r.data),
 };

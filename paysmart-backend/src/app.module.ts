@@ -28,6 +28,8 @@ import { ConsentModule } from './consent/consent.module';
 import { DataMinimizationModule } from './data-minimization/data-minimization.module';
 import { AuditLogModule } from './audit-log/audit-log.module';
 import { PaymentTokensModule } from './payment-tokens/payment-tokens.module';
+import { BillInquiryModule } from './bill-inquiry/bill-inquiry.module';
+import { MockMerchantModule } from './mock-merchant/mock-merchant.module';
 
 @Module({
   imports: [
@@ -101,6 +103,8 @@ import { PaymentTokensModule } from './payment-tokens/payment-tokens.module';
     DataMinimizationModule,
     AuditLogModule,
     PaymentTokensModule,
+    BillInquiryModule,
+    MockMerchantModule,
   ],
   controllers: [AppController],
   providers: [

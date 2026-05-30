@@ -7,6 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { SmsService } from '../sms/sms.service';
 import { SmsTemplates } from '../sms/sms.templates';
 import { EncryptionService } from '../common/encryption/encryption.service';
+import { BillInquiryService } from '../bill-inquiry/bill-inquiry.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import {
@@ -27,6 +28,7 @@ export class ScheduleService {
     private readonly prisma: PrismaService,
     private readonly smsService: SmsService,
     private readonly enc: EncryptionService,
+    private readonly billInquiry: BillInquiryService,
     @InjectQueue(PAYMENT_QUEUE) private readonly paymentQueue: Queue,
     @InjectQueue(SCHEDULE_QUEUE) private readonly scheduleQueue: Queue,
   ) { }
@@ -330,7 +332,137 @@ export class ScheduleService {
     }
   }
 
-  // ─── Cron ④ — 08:00 Nepal time: bill reminder SMS ─────────────────────────
+  // ─── Cron ④ — every hour: multi-window bill reminders ───────────────────────
+  /**
+   * Sends in-app + SMS reminders for bills in 3 time windows:
+   *   • Within 24 h  → "⚠️ [Payee] bill of NPR X due in Y hours"
+   *   • 1–3 days     → "⚠️ [Payee] bill of NPR X due in Y days"
+   *   • 3–7 days     → "⚠️ [Payee] bill of NPR X due in Y days"
+   * Deduplication: skips if a BILL_DUE notification for this bill was already
+   * created in the last 20 h (prevents hourly spam).
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async sendMultiWindowBillReminders() {
+    const now = new Date();
+    const windows = [
+      { key: '24h',  fromH: 0,  toH: 24  },
+      { key: '3day', fromH: 24, toH: 72  },
+      { key: '7day', fromH: 72, toH: 168 },
+    ];
+
+    for (const win of windows) {
+      const windowStart = new Date(now.getTime() + win.fromH * 3_600_000);
+      const windowEnd   = new Date(now.getTime() + win.toH   * 3_600_000);
+
+      const bills = await this.prisma.bill.findMany({
+        where: {
+          status:  { in: ['PENDING', 'OVERDUE'] as any },
+          dueDate: { gte: windowStart, lte: windowEnd },
+        },
+        include: {
+          user:     { select: { phone: true } },
+          merchant: { select: { name: true } },
+        },
+      });
+
+      if (bills.length === 0) continue;
+      this.logger.log(`[BillReminder ${win.key}] ${bills.length} bill(s) in window`);
+
+      for (const bill of bills) {
+        // Deduplicate: skip if we already sent a notification for this bill in last 20 h
+        const alreadySent = await this.prisma.notification.findFirst({
+          where: {
+            userId:    bill.userId,
+            type:      'BILL_DUE',
+            createdAt: { gte: new Date(now.getTime() - 20 * 3_600_000) },
+            metadata:  { path: ['billId'], equals: bill.id } as any,
+          },
+        });
+        if (alreadySent) continue;
+
+        const hoursLeft = Math.ceil((bill.dueDate.getTime() - now.getTime()) / 3_600_000);
+        const timeLabel = hoursLeft <= 1
+          ? '1 hour'
+          : hoursLeft < 24
+            ? `${hoursLeft} hours`
+            : hoursLeft < 48 ? '1 day' : `${Math.ceil(hoursLeft / 24)} days`;
+
+        const title = `⚠️ ${bill.merchant.name} bill due in ${timeLabel}`;
+        const body  = `NPR ${bill.amount.toLocaleString()} due in ${timeLabel}. Pay now to avoid late charges.`;
+
+        // Create in-app notification
+        await this.prisma.notification.create({
+          data: {
+            userId:   bill.userId,
+            type:     'BILL_DUE',
+            title,
+            body,
+            metadata: {
+              billId:         bill.id,
+              merchantName:   bill.merchant.name,
+              amount:         bill.amount,
+              dueDate:        bill.dueDate.toISOString(),
+              reminderWindow: win.key,
+            },
+          },
+        });
+
+        // SMS reminder (non-fatal)
+        if (bill.user.phone) {
+          try {
+            this.smsService.send(
+              this.enc.decrypt(bill.user.phone),
+              `⚠️ ${bill.merchant.name} bill of NPR ${bill.amount.toLocaleString()} due in ${timeLabel}. Open PaySmart to pay.`,
+            );
+          } catch (smsErr) {
+            this.logger.warn(`[BillReminder] SMS failed for bill ${bill.id}: ${smsErr.message}`);
+          }
+        }
+      }
+    }
+  }
+
+  // ─── Cron ⑥ — every hour: bill inquiry poll for all biller accounts ────────
+  /**
+   * Iterates all users' biller accounts whose merchant has a billInquiryUrl,
+   * calls checkBillForAccount for each, and fires-and-forgets per account so
+   * one failure never blocks the rest.
+   */
+  @Cron(CronExpression.EVERY_HOUR)
+  async pollBillInquiries(): Promise<void> {
+    this.logger.log('[BillInquiryPoll] Starting hourly bill inquiry poll');
+
+    const accounts = await this.prisma.billerAccount.findMany({
+      where: {
+        merchant: { billInquiryUrl: { not: null }, isActive: true },
+        user:     { isActive: true },
+      },
+      select: { id: true, userId: true },
+    });
+
+    if (accounts.length === 0) {
+      this.logger.debug('[BillInquiryPoll] No accounts with billInquiryUrl — skipping');
+      return;
+    }
+
+    this.logger.log(`[BillInquiryPoll] Polling ${accounts.length} account(s)`);
+
+    await Promise.allSettled(
+      accounts.map(async (account) => {
+        try {
+          await this.billInquiry.checkBillForAccount(account.id, account.userId);
+        } catch (err) {
+          this.logger.error(
+            `[BillInquiryPoll] Error for account ${account.id}: ${err?.message}`,
+          );
+        }
+      }),
+    );
+
+    this.logger.log('[BillInquiryPoll] Hourly poll done');
+  }
+
+  // ─── Cron ⑤ — 08:00 Nepal time: bill reminder SMS ────────────────────────
   @Cron('0 8 * * *', { timeZone: 'Asia/Kathmandu' })
   async sendBillReminders() {
     const now = new Date();

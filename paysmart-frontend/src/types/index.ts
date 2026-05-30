@@ -181,7 +181,9 @@ export interface BillerAccount {
 }
 
 // Onboarding category meta (used for the service-grid step)
-export type BillerCategory = 'electricity' | 'water' | 'education' | 'traffic' | 'internet' | 'tv';
+export type BillerCategory =
+  | 'electricity' | 'water' | 'education' | 'traffic'
+  | 'internet' | 'tv' | 'rent' | 'insurance' | 'school' | 'college';
 
 // ── Fetched Bill (mock real-time bill from NEA / KUKL / ISP / TV APIs) ────────
 export interface FetchedBill {

@@ -2,9 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { schedulesApi } from '../../api';
 import Spinner from '../../components/Spinner';
-import { BsWallet2 } from 'react-icons/bs';
 import {
-  BsLightningCharge, BsWifi, BsTv, BsHouseDoor,
+  BsWallet2, BsLightningCharge, BsWifi, BsTv, BsHouseDoor, BsShield,
 } from 'react-icons/bs';
 import { FaWater } from 'react-icons/fa';
 import { IoSchoolOutline } from 'react-icons/io5';
@@ -37,6 +36,14 @@ const BILL_CATEGORIES = [
     defaultName: 'Traffic Fine Payment',
     idLabel: 'Chit Number', idPlaceholder: 'e.g. TC-2082-001',
     accountLabel: 'Traffic Police eSewa No.', accountPlaceholder: 'Nepal Traffic Police number' },
+  { id: 'RENT', label: 'Rent', icon: <BsHouseDoor className="w-5 h-5" />,
+    defaultName: 'Monthly House Rent',
+    idLabel: 'Landlord Name', idPlaceholder: 'e.g. Ram Prasad Sharma',
+    accountLabel: "Landlord's eSewa / Bank A/C", accountPlaceholder: 'Landlord payment number' },
+  { id: 'INSURANCE', label: 'Insurance', icon: <BsShield className="w-5 h-5" />,
+    defaultName: 'Insurance Premium',
+    idLabel: 'Policy Number', idPlaceholder: 'e.g. NLI-2026-001234',
+    accountLabel: 'Insurance Co. eSewa No.', accountPlaceholder: 'Nepal Life / Prime Life no.' },
   { id: 'CUSTOM', label: 'Other', icon: <MdOutlineSend className="w-5 h-5" />,
     defaultName: '',
     idLabel: 'Pay To', idPlaceholder: 'Merchant name or phone number',
@@ -56,7 +63,7 @@ const PROVIDERS: Array<{ id: string; label: string; logo: React.ReactNode }> = [
   { id: 'WALLET', label: 'PaySmart Wallet', logo: <BsWallet2 className="w-5 h-5 text-primary" /> },
 ];
 
-const FREQUENCIES = ['ONCE', 'MONTHLY', 'QUARTERLY', 'WEEKLY', 'BIWEEKLY', 'YEARLY'];
+const FREQUENCIES = ['ONCE', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY'];
 
 export default function NewSchedule() {
   const navigate   = useNavigate();
@@ -76,8 +83,9 @@ export default function NewSchedule() {
     name:        params.get('name')        ?? '',
     amount:      params.get('amount')      ?? '',
     provider:    'ESEWA',
-    accountId:   '',          // SC no. / client code / student ID (for manual)
+    accountId:   '',              // landlord name / SC no. / client code / student ID
     recipientId: paymentAccount,  // actual payment identifier (eSewa / bank no.)
+    rentAddress: '',              // property address — only used when category = RENT
     frequency:   'MONTHLY',
     nextRunAt: (() => {
       const due = params.get('dueDate');
@@ -174,6 +182,7 @@ export default function NewSchedule() {
         nextRunAt:   chosen.toISOString(),
         description: [
           form.description,
+          selectedCat === 'RENT' && form.rentAddress ? `Property: ${form.rentAddress}` : '',
           prefs.autoPayEnabled   ? '[AUTO-PAY]' : '',
           prefs.smsReminder      ? '[SMS]'       : '',
           prefs.pushNotification ? '[PUSH]'      : '',
@@ -344,6 +353,32 @@ export default function NewSchedule() {
                 If blank, your {catMeta.idLabel.toLowerCase()} is used as the payment ID
               </p>
             </div>
+
+            {/* Extra field — Property Address (Rent only) */}
+            {selectedCat === 'RENT' && (
+              <div>
+                <label className="text-xs font-medium text-gray-500 mb-1 block">
+                  Property Address
+                </label>
+                <input
+                  type="text"
+                  value={form.rentAddress}
+                  onChange={e => setForm(p => ({ ...p, rentAddress: e.target.value }))}
+                  placeholder="e.g. Baluwatar-4, Kathmandu"
+                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary"
+                />
+              </div>
+            )}
+
+            {/* Rent reminder info */}
+            {selectedCat === 'RENT' && (
+              <div className="bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5 flex gap-2 items-start">
+                <span className="text-orange-500 text-base">🏠</span>
+                <p className="text-orange-700 text-xs leading-relaxed">
+                  <strong>Rent reminder included</strong> — SMS + push notification 3 days before due date so you always pay on time.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -416,7 +451,7 @@ export default function NewSchedule() {
                         : 'bg-gray-50 border border-gray-200 text-gray-600'
                     }`}
                   >
-                    {f === 'ONCE' ? 'One-time' : f === 'BIWEEKLY' ? 'Bi-weekly' : f.charAt(0) + f.slice(1).toLowerCase()}
+                    {f === 'ONCE' ? 'One-time' : f === 'BIWEEKLY' ? 'Bi-weekly' : f === 'DAILY' ? 'Daily' : f.charAt(0) + f.slice(1).toLowerCase()}
                   </button>
                 ))}
               </div>

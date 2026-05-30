@@ -228,12 +228,12 @@ export default function Dashboard() {
         const urgency  = daysLeft === null ? '' : daysLeft <= 0 ? '🔴 OVERDUE' : daysLeft === 1 ? '🟠 DUE TOMORROW' : `🟡 DUE IN ${daysLeft} DAYS`;
 
         return (
-          <div className="fixed inset-0 z-50 flex flex-col">
+          <div className="fixed inset-0 z-50 flex items-end justify-center">
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setBillAlert(null)} />
 
-            {/* Sheet slides up from bottom */}
-            <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] overflow-hidden animate-slide-up">
+            {/* Sheet — mobile-sized, centered, max 390px */}
+            <div className="relative w-full max-w-[390px] bg-white rounded-t-[32px] overflow-hidden animate-slide-up shadow-2xl mx-auto">
               {/* Colored top strip */}
               <div className={`${daysLeft !== null && daysLeft <= 1 ? 'bg-red-500' : 'bg-primary'} px-5 pt-6 pb-8`}>
                 <div className="flex justify-between items-start mb-4">
@@ -301,7 +301,25 @@ export default function Dashboard() {
                     📅 Schedule for Later
                   </button>
                   <button
-                    onClick={() => setBillAlert(null)}
+                    onClick={() => {
+                      // Save dismissed alert so Notifications page shows it as missed
+                      try {
+                        const dismissed = JSON.parse(localStorage.getItem('ps_dismissed_alerts') ?? '[]');
+                        const entry = {
+                          id:         billAlert.id,
+                          title:      billAlert.title,
+                          body:       billAlert.body,
+                          metadata:   billAlert.metadata,
+                          createdAt:  billAlert.createdAt,
+                          dismissedAt: new Date().toISOString(),
+                        };
+                        if (!dismissed.find((d: {id:string}) => d.id === billAlert.id)) {
+                          dismissed.unshift(entry);
+                          localStorage.setItem('ps_dismissed_alerts', JSON.stringify(dismissed.slice(0, 20)));
+                        }
+                      } catch { /* storage full */ }
+                      setBillAlert(null);
+                    }}
                     className="w-full py-3 text-gray-400 text-sm font-medium"
                   >
                     Remind me later
@@ -573,97 +591,6 @@ export default function Dashboard() {
           <span className="text-[36px] font-extrabold text-white/15">10%</span>
         </button>
 
-        {/* Demo triggers (dev only) */}
-        {import.meta.env.DEV && (
-          <div className="mx-3.5 mb-4">
-            <p className="text-xs text-gray-400 font-semibold mb-2 text-center">🎬 Demo Controls</p>
-            <div className="flex flex-col gap-2">
-              {/* Demo 1: Education bill with eSewa + bank */}
-              <button onClick={() => {
-                const fake: Notification = {
-                  id: 'demo-edu-' + Date.now(),
-                  userId: user?.id ?? '',
-                  type: 'BILL_DUE',
-                  title: '🏫 New bill from Himalayan College',
-                  body: 'NPR 15,000.00 due in 7 days — Second semester fee 2026',
-                  metadata: {
-                    merchantName: 'Himalayan College',
-                    amount: 15000,
-                    dueDate: new Date(Date.now() + 7 * 86400000).toISOString(),
-                    billId: 'demo-bill-edu',
-                    // Merchant payment methods — shown locked to student
-                    esewaId:  '9841234567',
-                    khaltiId: '9841234567',
-                    banks: [
-                      { bankName: 'NIC Asia Bank', accountNumber: '0110100123456701', accountHolder: 'Himalayan College Pvt. Ltd.', branchCode: 'Baneshwor, Ktm' },
-                      { bankName: 'Global IME Bank', accountNumber: '00101010012345', accountHolder: 'Himalayan College Pvt. Ltd.', branchCode: 'Koteshwor, Ktm' },
-                    ],
-                  },
-                  createdAt: new Date().toISOString(),
-                };
-                setBillAlert(fake);
-                setUnread(p => p + 1);
-              }} className="w-full py-3 border-2 border-dashed border-primary/40 text-primary text-sm font-medium rounded-2xl flex items-center justify-center gap-2">
-                🏫 Demo: College Fee (with eSewa + 2 Banks)
-              </button>
-
-              {/* Demo 2: Hospital bill */}
-              <button onClick={() => {
-                const fake: Notification = {
-                  id: 'demo-hosp-' + Date.now(),
-                  userId: user?.id ?? '',
-                  type: 'BILL_DUE',
-                  title: '🏥 New bill from Norvic Hospital',
-                  body: 'NPR 8,500.00 due in 3 days — Outpatient consultation 2026',
-                  metadata: {
-                    merchantName: 'Norvic International Hospital',
-                    amount: 8500,
-                    dueDate: new Date(Date.now() + 3 * 86400000).toISOString(),
-                    billId: 'demo-bill-hosp',
-                    esewaId: '9801110022',
-                    banks: [
-                      { bankName: 'Nabil Bank', accountNumber: '001000100001234', accountHolder: 'Norvic International Hospital Pvt. Ltd.', branchCode: 'Thapathali, Kathmandu' },
-                    ],
-                  },
-                  createdAt: new Date().toISOString(),
-                };
-                setBillAlert(fake);
-                setUnread(p => p + 1);
-              }} className="w-full py-3 border-2 border-dashed border-red-300 text-red-400 text-sm font-medium rounded-2xl flex items-center justify-center gap-2">
-                🏥 Demo: Hospital Bill (eSewa + Bank)
-              </button>
-
-              {/* Demo 3: ISP bill */}
-              <button onClick={() => {
-                const fake: Notification = {
-                  id: 'demo-isp-' + Date.now(),
-                  userId: user?.id ?? '',
-                  type: 'BILL_DUE',
-                  title: '🌐 Internet renewal from WorldLink',
-                  body: 'NPR 1,299.00 — 50 Mbps Unlimited · renews in 2 days',
-                  metadata: {
-                    merchantName: 'WorldLink Communications',
-                    amount: 1299,
-                    dueDate: new Date(Date.now() + 2 * 86400000).toISOString(),
-                    billId: 'demo-bill-isp',
-                    esewaId: '9860000456',
-                    khaltiId: '9860000456',
-                  },
-                  createdAt: new Date().toISOString(),
-                };
-                setBillAlert(fake);
-                setUnread(p => p + 1);
-              }} className="w-full py-3 border-2 border-dashed border-blue-300 text-blue-500 text-sm font-medium rounded-2xl flex items-center justify-center gap-2">
-                🌐 Demo: ISP Renewal (eSewa + Khalti)
-              </button>
-
-              <button onClick={() => navigate('/smart-bills')}
-                className="w-full py-2.5 border-2 border-dashed border-gray-200 text-gray-400 text-xs font-medium rounded-2xl">
-                💡 Open Smart Bills Page
-              </button>
-            </div>
-          </div>
-        )}
       </div>
 
       <BottomNav />
@@ -675,17 +602,19 @@ export default function Dashboard() {
 // Smart Bills section — shown on Dashboard between Suggestions and Pending Bills
 // ─────────────────────────────────────────────────────────────────────────────
 
-const CATEGORY_META: Record<string, { icon: React.ReactNode; bg: string; color: string }> = {
-  ELECTRICITY: { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50',  color: 'text-amber-600'  },
-  UTILITY:     { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50',  color: 'text-amber-600'  },
-  WATER:       { icon: <FaWater className="w-5 h-5" />,           bg: 'bg-sky-50',    color: 'text-sky-600'    },
-  INTERNET:    { icon: <BsWifi className="w-5 h-5" />,            bg: 'bg-blue-50',   color: 'text-blue-600'   },
-  TV:          { icon: <BsTv className="w-5 h-5" />,              bg: 'bg-purple-50', color: 'text-purple-600' },
-  EDUCATION:   { icon: <IoSchoolOutline className="w-5 h-5" />,   bg: 'bg-violet-50', color: 'text-violet-600' },
-  TRAFFIC:     { icon: <RiCarLine className="w-5 h-5" />,         bg: 'bg-red-50',    color: 'text-red-600'    },
-  GOVERNMENT:  { icon: <RiCarLine className="w-5 h-5" />,         bg: 'bg-red-50',    color: 'text-red-600'    },
-  INSURANCE:   { icon: <BsShield className="w-5 h-5" />,          bg: 'bg-green-50',  color: 'text-green-600'  },
-  RENT:        { icon: <BsHouseDoor className="w-5 h-5" />,       bg: 'bg-orange-50', color: 'text-orange-600' },
+const CATEGORY_META: Record<string, { icon: React.ReactNode; bg: string; color: string; label?: string }> = {
+  ELECTRICITY: { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50',  color: 'text-amber-600',  label: 'NEA Electricity'  },
+  UTILITY:     { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50',  color: 'text-amber-600'                             },
+  WATER:       { icon: <FaWater className="w-5 h-5" />,           bg: 'bg-sky-50',    color: 'text-sky-600',    label: 'KUKL Water'       },
+  INTERNET:    { icon: <BsWifi className="w-5 h-5" />,            bg: 'bg-blue-50',   color: 'text-blue-600'                              },
+  TV:          { icon: <BsTv className="w-5 h-5" />,              bg: 'bg-purple-50', color: 'text-purple-600', label: 'TV / Cable'       },
+  EDUCATION:   { icon: <IoSchoolOutline className="w-5 h-5" />,   bg: 'bg-violet-50', color: 'text-violet-600'                            },
+  SCHOOL:      { icon: <IoSchoolOutline className="w-5 h-5" />,   bg: 'bg-violet-50', color: 'text-violet-600', label: 'School Fee'       },
+  COLLEGE:     { icon: <IoSchoolOutline className="w-5 h-5" />,   bg: 'bg-indigo-50', color: 'text-indigo-600', label: 'College Fee'      },
+  TRAFFIC:     { icon: <RiCarLine className="w-5 h-5" />,         bg: 'bg-red-50',    color: 'text-red-600',    label: 'Traffic Fine'     },
+  GOVERNMENT:  { icon: <RiCarLine className="w-5 h-5" />,         bg: 'bg-red-50',    color: 'text-red-600'                               },
+  INSURANCE:   { icon: <BsShield className="w-5 h-5" />,          bg: 'bg-green-50',  color: 'text-green-600'                             },
+  RENT:        { icon: <BsHouseDoor className="w-5 h-5" />,       bg: 'bg-orange-50', color: 'text-orange-600', label: 'House Rent'       },
 };
 
 function SmartBillsSection({
@@ -726,7 +655,7 @@ function SmartBillsSection({
             </div>
             <div className="flex-1">
               <p className="text-sm font-bold text-gray-800">No smart bills yet</p>
-              <p className="text-xs text-gray-500 mt-0.5">Tap to set up — NEA, KUKL, WorldLink, DishHome, school fees…</p>
+              <p className="text-xs text-gray-500 mt-0.5">NEA · KUKL · Internet · TV · Rent · Insurance · School fees…</p>
             </div>
             <span className="text-primary font-bold text-xl">+</span>
           </div>
@@ -759,6 +688,9 @@ function SmartBillsSection({
                 {isTrafficFine && <TrafficFineDetails
                   acc={acc} onPay={() => onPayTrafficFine(acc)} onSchedule={() => onScheduleTrafficFine(acc)}
                 />}
+
+                {/* Rent special treatment */}
+                {acc.billerCategory.toUpperCase() === 'RENT' && <RentDetails acc={acc} />}
               </div>
             );
           })}
@@ -828,6 +760,36 @@ function TrafficFineDetails({
       <p className="text-gray-400 text-[10px] mt-2 leading-relaxed">
         Note: After payment, visit the traffic office with the receipt to collect your documents.
       </p>
+    </div>
+  );
+}
+
+function RentDetails({ acc }: { acc: BillerAccount }) {
+  const details     = (acc.details ?? {}) as Record<string, unknown>;
+  const rentAmount  = Number(details.rentAmount ?? details.amount ?? 0);
+  const landlord    = String(details.landlordName ?? acc.customerId ?? '—');
+  const address     = String(details.propertyAddress ?? details.address ?? '');
+
+  return (
+    <div className="mt-3 pt-3 border-t border-gray-100">
+      <div className="flex items-start justify-between mb-1.5">
+        <div>
+          <p className="text-orange-700 text-sm font-bold">Monthly House Rent</p>
+          <p className="text-gray-500 text-xs mt-0.5">
+            Landlord: <strong>{landlord}</strong>
+            {address ? ` · ${address}` : ''}
+          </p>
+        </div>
+        {rentAmount > 0 && (
+          <p className="text-orange-600 font-bold text-sm flex-shrink-0 ml-2">
+            NPR {rentAmount.toLocaleString()}
+          </p>
+        )}
+      </div>
+      <div className="bg-orange-50 border border-orange-100 rounded-xl px-3 py-1.5 flex items-center gap-2">
+        <span className="text-orange-500 text-xs">🔔</span>
+        <p className="text-orange-700 text-[11px] font-medium">Reminder 3 days before due date</p>
+      </div>
     </div>
   );
 }

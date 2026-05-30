@@ -11,10 +11,12 @@ import { randomBytes } from 'crypto';
 function toMerchantCategory(raw: string): MerchantCategory {
   const key = raw.toUpperCase();
   switch (key) {
-    case 'ELECTRICITY':
-    case 'WATER':
+    case 'ELECTRICITY':   return MerchantCategory.ELECTRICITY;
+    case 'WATER':         return MerchantCategory.WATER;
     case 'UTILITY':       return MerchantCategory.UTILITY;
-    case 'TRAFFIC':
+    case 'TV':
+    case 'CABLE':         return MerchantCategory.TV;
+    case 'TRAFFIC':       return MerchantCategory.TRAFFIC;
     case 'GOVERNMENT':    return MerchantCategory.GOVERNMENT;
     case 'EDUCATION':
     case 'SCHOOL':

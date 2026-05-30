@@ -42,14 +42,22 @@ export class MerchantService {
     if (dto.khaltiId)     paymentMethods.khalti = dto.khaltiId;
     if (dto.bankAccounts?.length) paymentMethods.banks = dto.bankAccounts;
 
+    // Encrypt billInquiryApiKey if provided
+    let encryptedApiKey: string | undefined;
+    if (dto.billInquiryApiKey) {
+      encryptedApiKey = this.enc.encrypt(dto.billInquiryApiKey);
+    }
+
     const merchant = await this.prisma.merchant.create({
       data: {
-        name:           dto.name,
-        slug:           dto.slug,
-        category:       dto.category,
-        description:    dto.description,
-        website:        dto.website,
-        paymentMethods: Object.keys(paymentMethods).length ? (paymentMethods as object) : undefined,
+        name:             dto.name,
+        slug:             dto.slug,
+        category:         dto.category,
+        description:      dto.description,
+        website:          dto.website,
+        billInquiryUrl:   dto.billInquiryUrl,
+        billInquiryApiKey: encryptedApiKey,
+        paymentMethods:   Object.keys(paymentMethods).length ? (paymentMethods as object) : undefined,
       },
     });
 

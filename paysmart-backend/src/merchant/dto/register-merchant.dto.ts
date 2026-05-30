@@ -56,6 +56,24 @@ export class RegisterMerchantDto {
   @IsUrl()
   website?: string;
 
+  // ── Bill Inquiry ─────────────────────────────────────────────────────────
+
+  @ApiPropertyOptional({
+    example: 'https://api.himalayan.edu.np/bill-inquiry',
+    description: 'Merchant bill inquiry endpoint — GET {url}?customerId={id}',
+  })
+  @IsOptional()
+  @IsUrl()
+  billInquiryUrl?: string;
+
+  @ApiPropertyOptional({
+    example: 'super-secret-api-key',
+    description: 'API key for the bill inquiry endpoint — will be AES-256-GCM encrypted at rest',
+  })
+  @IsOptional()
+  @IsString()
+  billInquiryApiKey?: string;
+
   // ── Payment methods (students see these as locked payment targets) ───────
 
   @ApiPropertyOptional({

@@ -7,7 +7,7 @@ import Spinner from '../../components/Spinner';
 
 const FREQ_LABELS: Record<string, string> = {
   ONCE: 'One-time', DAILY: 'Daily', WEEKLY: 'Weekly',
-  BIWEEKLY: 'Bi-weekly', MONTHLY: 'Monthly', QUARTERLY: 'Quarterly',
+  BIWEEKLY: 'Bi-weekly', MONTHLY: 'Monthly',
   YEARLY: 'Yearly', CUSTOM_CRON: 'Custom',
 };
 

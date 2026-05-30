@@ -4,6 +4,7 @@ import { transactionsApi, paymentsApi } from '../../api';
 import type { Transaction } from '../../types';
 import BottomNav from '../../components/BottomNav';
 import Spinner from '../../components/Spinner';
+import { smartDate } from '../../utils/date';
 
 const STATUS_STYLE: Record<string, string> = {
   COMPLETED: 'text-primary bg-green-50',
@@ -78,35 +79,89 @@ export default function Statement() {
             <p className="text-gray-500 mt-4">No transactions yet</p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2.5">
-            {txns.map((t, i) => {
+          <TransactionList txns={txns} runningBalances={runningBalances} />
+        )}
+      </div>
+      <BottomNav />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Grouped transaction list with day headers
+// ─────────────────────────────────────────────────────────────────────────────
+function dayKey(dateStr: string): string {
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+}
+
+function dayHeader(dateStr: string): string {
+  const date  = new Date(dateStr);
+  const now   = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yest  = new Date(today.getTime() - 86_400_000);
+  const item  = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  if (item.getTime() === today.getTime()) return 'Today';
+  if (item.getTime() === yest.getTime())  return 'Yesterday';
+  const daysAgo = Math.floor((today.getTime() - item.getTime()) / 86_400_000);
+  if (daysAgo < 7) {
+    return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+  }
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function TransactionList({
+  txns,
+  runningBalances,
+}: {
+  txns: Transaction[];
+  runningBalances: number[];
+}) {
+  // Group by calendar day
+  const groups: { key: string; header: string; items: { txn: Transaction; idx: number }[] }[] = [];
+  txns.forEach((t, i) => {
+    const k = dayKey(t.createdAt);
+    let g = groups.find(x => x.key === k);
+    if (!g) {
+      g = { key: k, header: dayHeader(t.createdAt), items: [] };
+      groups.push(g);
+    }
+    g.items.push({ txn: t, idx: i });
+  });
+
+  return (
+    <div className="flex flex-col gap-1">
+      {groups.map(group => (
+        <div key={group.key}>
+          {/* Day header */}
+          <div className="flex items-center gap-2 py-2 px-1">
+            <span className="text-xs font-bold text-gray-500">{group.header}</span>
+            <div className="flex-1 h-px bg-gray-100" />
+          </div>
+          {/* Transactions for this day */}
+          <div className="flex flex-col gap-2">
+            {group.items.map(({ txn: t, idx: i }) => {
               const isDebit   = t.type === 'DEBIT';
               const balAfter  = runningBalances[i];
               const completed = t.status === 'COMPLETED';
-
+              // Time only for items within a group
+              const timeStr = new Date(t.createdAt).toLocaleTimeString('en-GB', {
+                hour: '2-digit', minute: '2-digit', hour12: false,
+              });
               return (
                 <div key={t.id} className="bg-white rounded-2xl px-4 py-3.5 shadow-card">
                   <div className="flex items-center gap-3">
-                    {/* Icon */}
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${isDebit ? 'bg-red-50' : 'bg-green-50'}`}>
                       <span className={`text-base font-bold ${isDebit ? 'text-red-500' : 'text-primary'}`}>
                         {isDebit ? '↑' : '↓'}
                       </span>
                     </div>
-
-                    {/* Description + date */}
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-800 text-sm truncate">
                         {t.description ?? t.recipientId ?? 'Transaction'}
                       </p>
-                      <p className="text-gray-400 text-xs mt-0.5">
-                        {new Date(t.createdAt).toLocaleDateString('en-NP', {
-                          day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                        })}
-                      </p>
+                      <p className="text-gray-400 text-xs mt-0.5">{timeStr}</p>
                     </div>
-
-                    {/* Amount + running balance */}
                     <div className="text-right flex-shrink-0">
                       <p className={`font-bold text-sm ${isDebit ? 'text-red-500' : 'text-primary'}`}>
                         {isDebit ? '−' : '+'}NPR {t.amount.toLocaleString('en-NP')}
@@ -127,9 +182,8 @@ export default function Statement() {
               );
             })}
           </div>
-        )}
-      </div>
-      <BottomNav />
+        </div>
+      ))}
     </div>
   );
 }

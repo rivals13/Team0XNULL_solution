@@ -12,7 +12,7 @@
  *  • Smart reminders (SMS + push before due date)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { billerAccountsApi, paymentsApi } from '../../api';
 import type { BillerAccount, FetchedBill, PaymentProvider } from '../../types';
@@ -20,22 +20,39 @@ import Spinner from '../../components/Spinner';
 import BottomNav from '../../components/BottomNav';
 import { useToast } from '../../hooks/useToast';
 import ToastContainer from '../../components/ToastContainer';
+import { BsWallet2, BsLightningCharge, BsWifi, BsTv, BsHouseDoor, BsShield } from 'react-icons/bs';
+import { FaWater } from 'react-icons/fa';
+import { IoSchoolOutline } from 'react-icons/io5';
+import { RiCarLine } from 'react-icons/ri';
 
 // ─── Category metadata ────────────────────────────────────────────────────────
-const CAT_META: Record<string, { emoji: string; label: string; bg: string; accent: string }> = {
-  ELECTRICITY: { emoji: '⚡', label: 'Electricity', bg: 'bg-amber-50',  accent: 'text-amber-700' },
-  WATER:       { emoji: '💧', label: 'Water',       bg: 'bg-sky-50',    accent: 'text-sky-700'   },
-  INTERNET:    { emoji: '🌐', label: 'Internet',    bg: 'bg-blue-50',   accent: 'text-blue-700'  },
-  TV:          { emoji: '📺', label: 'TV',          bg: 'bg-purple-50', accent: 'text-purple-700'},
-  EDUCATION:   { emoji: '🎓', label: 'Education',   bg: 'bg-violet-50', accent: 'text-violet-700'},
-  TRAFFIC:     { emoji: '🚔', label: 'Traffic',     bg: 'bg-red-50',    accent: 'text-red-700'   },
+const CAT_META: Record<string, { icon: React.ReactNode; label: string; bg: string; accent: string }> = {
+  ELECTRICITY: { icon: <BsLightningCharge className="w-5 h-5 text-amber-600" />, label: 'NEA Electricity',  bg: 'bg-amber-50',   accent: 'text-amber-700'  },
+  WATER:       { icon: <FaWater className="w-5 h-5 text-sky-600" />,             label: 'KUKL Water',       bg: 'bg-sky-50',     accent: 'text-sky-700'    },
+  INTERNET:    { icon: <BsWifi className="w-5 h-5 text-blue-600" />,             label: 'Internet',         bg: 'bg-blue-50',    accent: 'text-blue-700'   },
+  TV:          { icon: <BsTv className="w-5 h-5 text-purple-600" />,             label: 'TV / Cable',       bg: 'bg-purple-50',  accent: 'text-purple-700' },
+  EDUCATION:   { icon: <IoSchoolOutline className="w-5 h-5 text-violet-600" />,  label: 'Education',        bg: 'bg-violet-50',  accent: 'text-violet-700' },
+  SCHOOL:      { icon: <IoSchoolOutline className="w-5 h-5 text-violet-600" />,  label: 'School Fee',       bg: 'bg-violet-50',  accent: 'text-violet-700' },
+  COLLEGE:     { icon: <IoSchoolOutline className="w-5 h-5 text-indigo-600" />,  label: 'College Fee',      bg: 'bg-indigo-50',  accent: 'text-indigo-700' },
+  TRAFFIC:     { icon: <RiCarLine className="w-5 h-5 text-red-600" />,           label: 'Traffic Fine',     bg: 'bg-red-50',     accent: 'text-red-700'    },
+  RENT:        { icon: <BsHouseDoor className="w-5 h-5 text-orange-600" />,      label: 'House Rent',       bg: 'bg-orange-50',  accent: 'text-orange-700' },
+  INSURANCE:   { icon: <BsShield className="w-5 h-5 text-green-600" />,          label: 'Insurance',        bg: 'bg-green-50',   accent: 'text-green-700'  },
 };
 
-const PROVIDER_META: Record<PaymentProvider, { label: string; logo: string; color: string }> = {
-  ESEWA:  { label: 'eSewa',           logo: '🟢', color: 'border-green-500 bg-green-50'  },
-  KHALTI: { label: 'Khalti',          logo: '🟣', color: 'border-purple-500 bg-purple-50'},
-  WALLET: { label: 'PaySmart Wallet', logo: '💚', color: 'border-primary bg-[#E8F5EE]'   },
-};
+const SMART_BILL_PROVIDERS: Array<{ id: PaymentProvider; label: string; logo: React.ReactNode; color: string }> = [
+  {
+    id: 'ESEWA',
+    label: 'eSewa',
+    logo: <img src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png" style={{ width: '24px', height: '24px', objectFit: 'contain', borderRadius: '6px' }} alt="eSewa" />,
+    color: 'border-green-500 bg-green-50',
+  },
+  {
+    id: 'WALLET',
+    label: 'PaySmart Wallet',
+    logo: <BsWallet2 className="w-6 h-6 text-primary" />,
+    color: 'border-primary bg-[#E8F5EE]',
+  },
+];
 
 // ─── Mock bill fetch ── simulates NEA / KUKL / ISP API response ───────────────
 function mockFetchBill(acc: BillerAccount): Promise<FetchedBill> {
@@ -53,11 +70,17 @@ function mockFetchBill(acc: BillerAccount): Promise<FetchedBill> {
         INTERNET:    [999, 1_299, 1_499, 2_199],
         TV:          [449, 599, 799],
         EDUCATION:   [8_000, 12_000, 15_000, 25_000],
+        SCHOOL:      [3_500, 5_000, 8_000, 12_000],
+        COLLEGE:     [8_000, 12_000, 18_000, 25_000],
         TRAFFIC:     [Number((acc.details as Record<string, unknown>)?.fineAmount ?? 1_000)],
+        RENT:        [8_000, 10_000, 12_000, 15_000, 20_000, 25_000],
+        INSURANCE:   [2_500, 3_500, 5_000, 8_000, 12_000],
       };
       const planMap: Record<string, string[]> = {
-        INTERNET: ['25 Mbps Unlimited', '50 Mbps Unlimited', '100 Mbps Unlimited', '200 Mbps Business'],
-        TV:       ['Family Pack (120 ch)', 'Sports Pack (80 ch)', 'Premium Pack (200 ch)'],
+        INTERNET:  ['25 Mbps Unlimited', '50 Mbps Unlimited', '100 Mbps Unlimited', '200 Mbps Business'],
+        TV:        ['Family Pack (120 ch)', 'Sports Pack (80 ch)', 'Premium Pack (200 ch)'],
+        INSURANCE: ['Endowment Plan', 'Term Life Plan', 'Money Back Plan'],
+        RENT:      ['Monthly Residential', 'Monthly Commercial'],
       };
 
       const arr    = amountMap[cat] ?? [500];
@@ -72,9 +95,13 @@ function mockFetchBill(acc: BillerAccount): Promise<FetchedBill> {
         currentAmount: amount,
         fine,
         rebate,
-        serviceCharge: cat === 'ELECTRICITY' ? 30 : cat === 'WATER' ? 20 : 0,
+        serviceCharge: cat === 'ELECTRICITY' ? 30 : cat === 'WATER' ? 20 : cat === 'INSURANCE' ? 50 : 0,
         dueDate,
-        billPeriod:    `${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()}`,
+        billPeriod:    cat === 'RENT'
+          ? `${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()} Rent`
+          : cat === 'INSURANCE'
+            ? `${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()} Premium`
+            : `${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()}`,
         unitsUsed:     cat === 'ELECTRICITY' ? [45, 72, 98, 134, 201][seed % 5] : undefined,
         planName:      plans ? plans[seed % plans.length] : undefined,
         status:        isOverdue ? 'OVERDUE' : 'DUE',
@@ -134,11 +161,66 @@ export default function SmartBills() {
 
   useEffect(() => { load(); }, [load]);
 
+  /**
+   * Map a backend BillInquiryResult to the FetchedBill shape used locally.
+   * Falls back to mockFetchBill if the API returns { noBill: true } or fails.
+   */
+  const mapBackendBill = (raw: Record<string, unknown>, acc: BillerAccount): FetchedBill => {
+    const amount = typeof raw.amount === 'number' ? raw.amount : 0;
+    const dueDate = typeof raw.dueDate === 'string' ? raw.dueDate : new Date().toISOString();
+    const now = new Date();
+    return {
+      accountId:     acc.id,
+      currentAmount: amount,
+      fine:          0,
+      rebate:        0,
+      serviceCharge: 0,
+      dueDate,
+      billPeriod:    `${now.toLocaleString('en', { month: 'long' })} ${now.getFullYear()}`,
+      planName:      typeof raw.invoiceNumber === 'string' ? `Inv: ${raw.invoiceNumber}` : undefined,
+      status:        new Date(dueDate) < now ? 'OVERDUE' : 'DUE',
+      fetchedAt:     new Date().toISOString(),
+    };
+  };
+
   const fetchBill = async (acc: BillerAccount) => {
     setFetching(p => ({ ...p, [acc.id]: true }));
     try {
-      const bill = await mockFetchBill(acc);
+      let bill: FetchedBill;
+      try {
+        const raw = await billerAccountsApi.checkBill(acc.id) as Record<string, unknown>;
+        if (raw && !('noBill' in raw)) {
+          bill = mapBackendBill(raw, acc);
+        } else {
+          // Merchant has no billInquiryUrl — fall back to mock
+          bill = await mockFetchBill(acc);
+        }
+      } catch {
+        // API call failed — fall back to mock so app still works
+        bill = await mockFetchBill(acc);
+      }
       setFetchedBills(p => ({ ...p, [acc.id]: bill }));
+    } catch { show('Failed to fetch bill. Please try again.', 'error'); }
+    finally { setFetching(p => ({ ...p, [acc.id]: false })); }
+  };
+
+  // Fetch bill then immediately open the payment modal — used by "Pay Now" on unfetched cards
+  const fetchAndPay = async (acc: BillerAccount) => {
+    setFetching(p => ({ ...p, [acc.id]: true }));
+    try {
+      let bill: FetchedBill;
+      try {
+        const raw = await billerAccountsApi.checkBill(acc.id) as Record<string, unknown>;
+        if (raw && !('noBill' in raw)) {
+          bill = mapBackendBill(raw, acc);
+        } else {
+          bill = await mockFetchBill(acc);
+        }
+      } catch {
+        bill = await mockFetchBill(acc);
+      }
+      setFetchedBills(p => ({ ...p, [acc.id]: bill }));
+      openPay(acc, bill);
     } catch { show('Failed to fetch bill. Please try again.', 'error'); }
     finally { setFetching(p => ({ ...p, [acc.id]: false })); }
   };
@@ -163,7 +245,7 @@ export default function SmartBills() {
       // Mark as paid locally
       setFetchedBills(p => ({ ...p, [acc.id]: { ...bill, status: 'PAID' } }));
       setPayModal(null);
-      show(`✅ NPR ${total.toLocaleString()} paid to ${acc.billerName} via ${PROVIDER_META[selectedProvider].label}!`, 'success');
+      show(`✅ NPR ${total.toLocaleString()} paid to ${acc.billerName} via ${SMART_BILL_PROVIDERS.find(p => p.id === selectedProvider)?.label ?? selectedProvider}!`, 'success');
       // Refresh balance
       paymentsApi.getBalance().then(r => setBalance(r.balance)).catch(() => {});
     } catch {
@@ -206,9 +288,9 @@ export default function SmartBills() {
 
       {/* ── Payment Modal ── */}
       {payModal && (
-        <div className="fixed inset-0 z-50 flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !paying && setPayModal(null)} />
-          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-[32px] animate-slide-up">
+          <div className="relative w-full max-w-[390px] bg-white rounded-t-[32px] animate-slide-up mx-auto max-h-[88vh] overflow-y-auto">
             {/* Header */}
             <div className="bg-primary px-5 pt-5 pb-6 rounded-t-[32px]">
               <div className="flex justify-between items-center mb-3">
@@ -257,25 +339,25 @@ export default function SmartBills() {
               {/* Payment method selector */}
               <p className="text-sm font-semibold text-gray-700 mb-2.5">Pay via</p>
               <div className="flex flex-col gap-2 mb-5">
-                {(Object.keys(PROVIDER_META) as PaymentProvider[]).map(p => (
+                {SMART_BILL_PROVIDERS.map(p => (
                   <button
-                    key={p}
-                    onClick={() => setSelectedProvider(p)}
+                    key={p.id}
+                    onClick={() => setSelectedProvider(p.id)}
                     className={`flex items-center gap-3 px-4 py-3.5 rounded-2xl border-2 transition-all ${
-                      selectedProvider === p ? PROVIDER_META[p].color + ' border-opacity-100' : 'border-gray-100 bg-white'
+                      selectedProvider === p.id ? p.color + ' border-opacity-100' : 'border-gray-100 bg-white'
                     }`}
                   >
-                    <span className="text-2xl">{PROVIDER_META[p].logo}</span>
+                    <span className="flex items-center justify-center w-6 h-6">{p.logo}</span>
                     <div className="flex-1 text-left">
-                      <p className="font-semibold text-gray-800 text-sm">{PROVIDER_META[p].label}</p>
-                      {p === 'WALLET' && balance !== null && (
+                      <p className="font-semibold text-gray-800 text-sm">{p.label}</p>
+                      {p.id === 'WALLET' && balance !== null && (
                         <p className="text-xs text-gray-400">Balance: NPR {balance.toLocaleString('en-NP')}</p>
                       )}
                     </div>
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                      selectedProvider === p ? 'border-primary' : 'border-gray-300'
+                      selectedProvider === p.id ? 'border-primary' : 'border-gray-300'
                     }`}>
-                      {selectedProvider === p && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                      {selectedProvider === p.id && <div className="w-2.5 h-2.5 rounded-full bg-primary" />}
                     </div>
                   </button>
                 ))}
@@ -323,7 +405,7 @@ export default function SmartBills() {
         </div>
       </div>
 
-      <div className="h-[calc(100vh-130px)] overflow-y-auto pb-20">
+      <div className="h-[calc(100vh-130px)] overflow-y-auto pb-28">
 
         {/* ── Summary Stats ── */}
         {!loading && accounts.length > 0 && (
@@ -423,7 +505,14 @@ export default function SmartBills() {
                     : 'bg-white border border-gray-200 text-gray-600'
                 }`}
               >
-                {t === 'ALL' ? '🏠 All' : `${CAT_META[t]?.emoji ?? ''} ${CAT_META[t]?.label ?? t}`}
+                {t === 'ALL' ? (
+                    <span>🏠 All</span>
+                  ) : (
+                    <span className="flex items-center gap-1">
+                      {CAT_META[t]?.icon}
+                      <span>{CAT_META[t]?.label ?? t}</span>
+                    </span>
+                  )}
               </button>
             ))}
           </div>
@@ -469,6 +558,7 @@ export default function SmartBills() {
                 bill={fetchedBills[acc.id]}
                 fetching={!!fetching[acc.id]}
                 onFetch={() => fetchBill(acc)}
+                onFetchAndPay={() => fetchAndPay(acc)}
                 onPay={(bill) => openPay(acc, bill)}
                 onSchedule={(bill) => schedulePayment(acc, bill)}
                 onDelete={() => {
@@ -486,10 +576,11 @@ export default function SmartBills() {
           <p className="text-xs font-bold text-gray-600 mb-2">ℹ️ How Smart Bills works</p>
           <div className="flex flex-col gap-1.5">
             {[
-              '📡 Fetches your latest bill from NEA/KUKL/ISP/TV',
+              '📡 Fetches your latest bill from NEA · KUKL · ISP · TV · Insurance',
               '🔔 Sends reminder 3 days + 1 day + 1 hour before due date',
+              '🏠 Rent tracker — reminds 3 days before monthly due date',
               '⚡ Auto-pay option — only activates when you opt in',
-              '💳 Pay via eSewa, Khalti, or PaySmart Wallet',
+              '💳 Pay via eSewa or PaySmart Wallet',
               '👨‍👩‍👧 Pay family members\' bills (parents, siblings)',
             ].map((tip, i) => (
               <p key={i} className="text-xs text-gray-500">{tip}</p>
@@ -507,18 +598,19 @@ export default function SmartBills() {
 // Individual bill card
 // ─────────────────────────────────────────────────────────────────────────────
 function BillCard({
-  acc, bill, fetching, onFetch, onPay, onSchedule, onDelete,
+  acc, bill, fetching, onFetch, onFetchAndPay, onPay, onSchedule, onDelete,
 }: {
   acc: BillerAccount;
   bill: FetchedBill | undefined;
   fetching: boolean;
   onFetch: () => void;
+  onFetchAndPay: () => void;
   onPay: (b: FetchedBill) => void;
   onSchedule: (b: FetchedBill) => void;
   onDelete: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const cat   = CAT_META[acc.billerCategory.toUpperCase()] ?? { emoji: '📄', label: acc.billerCategory, bg: 'bg-gray-50', accent: 'text-gray-700' };
+  const cat   = CAT_META[acc.billerCategory.toUpperCase()] ?? { icon: <span>📄</span>, label: acc.billerCategory, bg: 'bg-gray-50', accent: 'text-gray-700' };
   const total = bill ? bill.currentAmount + bill.fine + bill.serviceCharge - bill.rebate : 0;
 
   const daysLeft = bill
@@ -534,8 +626,8 @@ function BillCard({
         onClick={() => setExpanded(e => !e)}
         className="w-full flex items-center gap-3 p-4 text-left"
       >
-        <div className={`w-12 h-12 rounded-2xl ${cat.bg} flex items-center justify-center text-2xl flex-shrink-0`}>
-          {cat.emoji}
+        <div className={`w-12 h-12 rounded-2xl ${cat.bg} flex items-center justify-center flex-shrink-0`}>
+          {cat.icon}
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
@@ -570,20 +662,28 @@ function BillCard({
             <p className="text-xs font-semibold text-gray-600 mb-3">{dueLabel}</p>
           )}
 
-          {/* Fetched bill details */}
+          {/* Not yet fetched — show Pay Now (fetches + opens modal in one step) */}
           {!bill && !fetching && (
-            <button
-              onClick={onFetch}
-              className="w-full py-3 bg-amber-500 text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm active:scale-95 transition-transform mb-3"
-            >
-              📡 Fetch Current Bill
-            </button>
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={onFetchAndPay}
+                className="flex-1 py-3 bg-primary text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm active:scale-95 transition-transform"
+              >
+                ⚡ Pay Now
+              </button>
+              <button
+                onClick={onFetch}
+                className="flex-1 py-3 border-2 border-gray-200 text-gray-500 font-semibold rounded-xl text-sm active:scale-95 transition-transform"
+              >
+                📋 View Bill
+              </button>
+            </div>
           )}
 
           {fetching && (
             <div className="flex items-center justify-center gap-2 py-4 text-gray-500">
               <Spinner size={18} />
-              <span className="text-sm">Connecting to {acc.billerName}…</span>
+              <span className="text-sm">Fetching bill from {acc.billerName}…</span>
             </div>
           )}
 
