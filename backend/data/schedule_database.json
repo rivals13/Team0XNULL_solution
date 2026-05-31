@@ -1,0 +1,32 @@
+{
+  "database": "schedules",
+  "description": "Stores user-confirmed payment schedules for recurring utility payments. Each entry is created when the user chooses to 'Schedule' a notification. The scheduled_amount and scheduled_date fields are editable by the user at any time. Status tracks whether the payment is upcoming, completed, or cancelled.",
+  "records": [
+    {
+      "schedule_id": "sch001",
+      "notification_id": "notif002",
+      "service_provider": "Nepal Electricity Authority",
+      "category": "Utilities",
+      "scheduled_amount": 1871,
+      "scheduled_date": "2025-01-20",
+      "frequency": "monthly",
+      "created_on": "2024-12-31",
+      "last_modified": "2024-12-31",
+      "status": "upcoming",
+      "notes": "Average monthly electricity bill. Amount may vary slightly each month."
+    },
+    {
+      "schedule_id": "sch002",
+      "notification_id": "notif003",
+      "service_provider": "Vianet Communications",
+      "category": "Utilities",
+      "scheduled_amount": 1200,
+      "scheduled_date": "2025-01-22",
+      "frequency": "monthly",
+      "created_on": "2024-12-31",
+      "last_modified": "2024-12-31",
+      "status": "upcoming",
+      "notes": "Fixed monthly internet subscription fee."
+    }
+  ]
+}

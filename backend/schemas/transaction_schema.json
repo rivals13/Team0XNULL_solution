@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Transaction",
+  "type": "object",
+  "required": ["id", "service_provider", "category", "amount", "date", "type"],
+  "properties": {
+    "id": {"type": "string"},
+    "service_provider": {"type": "string"},
+    "category": {"type": "string", "enum": ["utilities", "education", "financial", "shopping", "other"]},
+    "amount": {"type": "number", "minimum": 0},
+    "date": {"type": "string", "format": "date"},
+    "type": {"type": "string", "enum": ["recurring", "non_recurring"]}
+  },
+  "additionalProperties": false
+}

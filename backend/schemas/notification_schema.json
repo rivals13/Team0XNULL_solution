@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "RecurringNotification",
+  "type": "object",
+  "required": ["id", "service_provider", "category", "amount", "first_date", "last_date", "transaction_count", "status"],
+  "properties": {
+    "id": {"type": "string"},
+    "service_provider": {"type": "string"},
+    "category": {"type": "string"},
+    "amount": {"type": "number"},
+    "first_date": {"type": "string", "format": "date"},
+    "last_date": {"type": "string", "format": "date"},
+    "transaction_count": {"type": "integer", "minimum": 1},
+    "transaction_ids": {"type": "array", "items": {"type": "string"}},
+    "status": {"type": "string", "enum": ["pending", "ignored", "scheduled"]}
+  },
+  "additionalProperties": true
+}
