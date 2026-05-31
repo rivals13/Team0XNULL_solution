@@ -198,12 +198,21 @@ The system follows a modular architecture consisting of:
 
 ### API Endpoints
 
-- `POST /auth/login` issues a demo JWT
+- `POST /login` authenticates demo user (`demo` / `demo123`) and returns success message with JWT
+- `POST /auth/login` issues a demo JWT (backward compatibility route)
 - `GET /transactions` returns stored transaction history
-- `POST /transactions` creates a transaction record
+- `POST /transactions` creates a transaction record and returns a confirmation payload
 - `GET /patterns` returns detected recurring-payment insights
 - `GET /automation` lists saved automation rules
 - `POST /automation` saves a recurring-payment automation rule
+
+### API Response and Error Contract
+
+- `200` successful login/transaction responses (JSON body)
+- `400` invalid request payloads (validation errors)
+- `401` invalid credentials for login
+- `404` endpoint/resource not found
+- Swagger/OpenAPI docs available at `/docs`
 
 ---
 

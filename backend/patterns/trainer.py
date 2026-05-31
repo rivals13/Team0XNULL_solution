@@ -34,6 +34,9 @@ else:
 from backend.database.models import Transaction
 from .utils import group_transactions
 
+# Minimum number of occurrences required for a group to be considered
+MIN_OCCURRENCES = 5
+
 
 @dataclass
 class TrainingResult:
@@ -83,8 +86,17 @@ def _build_feature_row(pattern: dict[str, object]) -> list[float]:
     ]
 
 
-def train_pattern_model(transactions: list[Transaction]) -> TrainingResult:
+def train_pattern_model(transactions: list[Transaction], top_k: int | None = None) -> TrainingResult:
     grouped_patterns = group_transactions(transactions)
+    # keep only groups that meet the minimum occurrence requirement
+    grouped_patterns = [p for p in grouped_patterns if int(p["payment_count"]) >= MIN_OCCURRENCES]
+
+    # order by priority: highest payment_count first, then by average interval
+    grouped_patterns.sort(key=lambda item: (int(item["payment_count"]), float(item["average_interval_days"])), reverse=True)
+
+    # optionally limit to top-K priority groups for training
+    if top_k is not None and top_k > 0:
+        grouped_patterns = grouped_patterns[:top_k]
     if not grouped_patterns:
         fallback_model = MajorityVoteClassifier().fit([[0.0]], [0])
         return TrainingResult(model=fallback_model, feature_rows=[], labels=[])

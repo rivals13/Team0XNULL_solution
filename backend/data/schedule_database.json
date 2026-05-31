@@ -1,6 +1,6 @@
 {
   "database": "schedules",
-  "description": "Stores user-confirmed payment schedules for recurring utility payments. Each entry is created when the user chooses to 'Schedule' a notification. The scheduled_amount and scheduled_date fields are editable by the user at any time. Status tracks whether the payment is upcoming, completed, or cancelled.",
+  "description": "Stores user-confirmed payment schedules for recurring utility and top-up payments.",
   "records": [
     {
       "schedule_id": "sch001",
@@ -27,6 +27,25 @@
       "last_modified": "2024-12-31",
       "status": "upcoming",
       "notes": "Fixed monthly internet subscription fee."
+    },
+    {
+      "schedule_id": "SCHED-83EACEC015",
+      "notification_id": "NOTIF-0BFB4DA7C6",
+      "service_provider": "NEA WiFi Bill",
+      "category": "utilities",
+      "payment_family": "utilities",
+      "scheduled_amount": 1010.0,
+      "scheduled_date": "2026-05-30",
+      "created_on": "2026-05-30T12:58:41Z",
+      "last_modified": "2026-05-30T12:58:41Z",
+      "status": "upcoming",
+      "notes": "Editable payment schedule generated from recurring payment priority detection.",
+      "ui_message": "Your transaction has been scheduled.",
+      "reminders": {
+        "10_days_before": "2026-05-20",
+        "4_days_before": "2026-05-26",
+        "1_days_before": "2026-05-29"
+      }
     }
   ]
 }

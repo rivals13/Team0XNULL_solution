@@ -1,0 +1,370 @@
+[
+  {
+    "transaction_id": "TXN1",
+    "amount": 150000.0,
+    "recipient": "LBEF College Fee",
+    "date": "2025-01-30",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN2",
+    "amount": 152000.0,
+    "recipient": "LBEF College Fee",
+    "date": "2025-03-28",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN3",
+    "amount": 149500.0,
+    "recipient": "LBEF College Fee",
+    "date": "2025-05-29",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN4",
+    "amount": 151000.0,
+    "recipient": "LBEF College Fee",
+    "date": "2025-07-31",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN5",
+    "amount": 150500.0,
+    "recipient": "LBEF College Fee",
+    "date": "2025-09-30",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN6",
+    "amount": 153000.0,
+    "recipient": "LBEF College Fee",
+    "date": "2025-11-30",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN7",
+    "amount": 149800.0,
+    "recipient": "LBEF College Fee",
+    "date": "2026-01-30",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN8",
+    "amount": 151200.0,
+    "recipient": "LBEF College Fee",
+    "date": "2026-03-30",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN9",
+    "amount": 150700.0,
+    "recipient": "LBEF College Fee",
+    "date": "2026-05-29",
+    "category": "education",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN10",
+    "amount": 980.0,
+    "recipient": "NEA WiFi Bill",
+    "date": "2025-01-30",
+    "category": "utilities",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN11",
+    "amount": 1020.0,
+    "recipient": "NEA WiFi Bill",
+    "date": "2025-03-30",
+    "category": "utilities",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN12",
+    "amount": 1000.0,
+    "recipient": "NEA WiFi Bill",
+    "date": "2025-05-28",
+    "category": "utilities",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN13",
+    "amount": 1050.0,
+    "recipient": "NEA WiFi Bill",
+    "date": "2025-07-29",
+    "category": "utilities",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN14",
+    "amount": 990.0,
+    "recipient": "NEA WiFi Bill",
+    "date": "2025-09-30",
+    "category": "utilities",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN15",
+    "amount": 1010.0,
+    "recipient": "NEA WiFi Bill",
+    "date": "2025-11-30",
+    "category": "utilities",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN16",
+    "amount": 995.0,
+    "recipient": "NEA WiFi Bill",
+    "date": "2026-01-30",
+    "category": "utilities",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN17",
+    "amount": 1035.0,
+    "recipient": "NEA WiFi Bill",
+    "date": "2026-03-30",
+    "category": "utilities",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN18",
+    "amount": 50000.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2025-02-05",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN19",
+    "amount": 50500.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2025-04-06",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN20",
+    "amount": 49500.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2025-06-05",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN21",
+    "amount": 50000.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2025-08-07",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN22",
+    "amount": 51000.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2025-10-05",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN23",
+    "amount": 49800.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2025-12-05",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN24",
+    "amount": 50200.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2026-02-05",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN25",
+    "amount": 49950.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2026-04-05",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN26",
+    "amount": 50300.0,
+    "recipient": "Nabil Bank Loan",
+    "date": "2026-06-05",
+    "category": "financial",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN27",
+    "amount": 1000.0,
+    "recipient": "Stationery Shop",
+    "date": "2025-01-15",
+    "category": "shopping",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN28",
+    "amount": 120.0,
+    "recipient": "Stationery Shop",
+    "date": "2025-02-12",
+    "category": "shopping",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN29",
+    "amount": 80.0,
+    "recipient": "Stationery Shop",
+    "date": "2025-03-10",
+    "category": "shopping",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN30",
+    "amount": 60.0,
+    "recipient": "Stationery Shop",
+    "date": "2025-04-18",
+    "category": "shopping",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN31",
+    "amount": 200.0,
+    "recipient": "Stationery Shop",
+    "date": "2025-05-22",
+    "category": "shopping",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN32",
+    "amount": 150.0,
+    "recipient": "Stationery Shop",
+    "date": "2025-06-15",
+    "category": "shopping",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN33",
+    "amount": 90.0,
+    "recipient": "Stationery Shop",
+    "date": "2025-07-19",
+    "category": "shopping",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN34",
+    "amount": 75.0,
+    "recipient": "Stationery Shop",
+    "date": "2025-08-21",
+    "category": "shopping",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN35",
+    "amount": 2500.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-01-05",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN36",
+    "amount": 1800.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-02-07",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN37",
+    "amount": 2200.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-03-09",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN38",
+    "amount": 2000.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-04-11",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN39",
+    "amount": 2400.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-05-13",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN40",
+    "amount": 2100.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-06-15",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN41",
+    "amount": 2300.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-07-17",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN42",
+    "amount": 1950.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-08-19",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN43",
+    "amount": 2050.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-09-21",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN44",
+    "amount": 2150.0,
+    "recipient": "Kirana Pasal",
+    "date": "2025-10-23",
+    "category": "groceries",
+    "note": null
+  },
+  {
+    "transaction_id": "TXN_API_TEST_1",
+    "amount": 123.45,
+    "recipient": "Integration Test",
+    "date": "2026-05-29",
+    "category": "test",
+    "note": "created by smoke test"
+  },
+  {
+    "transaction_id": "TXN999",
+    "amount": 123.45,
+    "recipient": "Test",
+    "date": "2026-05-29",
+    "category": "test",
+    "note": "t"
+  }
+]

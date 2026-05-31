@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from backend.database.db_handler import load_transactions
 from backend.database.models import PatternInsight
@@ -11,6 +11,6 @@ router = APIRouter(prefix="/patterns", tags=["patterns"], dependencies=[Depends(
 
 
 @router.get("", response_model=dict[str, list[PatternInsight]])
-def read_patterns() -> dict[str, list[PatternInsight]]:
-    patterns = detect_recurring_patterns(load_transactions())
+def read_patterns(top_k: int | None = Query(default=None, ge=1)) -> dict[str, list[PatternInsight]]:
+    patterns = detect_recurring_patterns(load_transactions(), top_k=top_k)
     return {"patterns": patterns}

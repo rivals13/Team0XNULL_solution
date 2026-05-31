@@ -42,12 +42,25 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
+class LoginResponse(BaseModel):
+    status: str = "success"
+    message: str
+    access_token: str
+    token_type: str = "bearer"
+
+
+class TransactionCreateResponse(BaseModel):
+    status: str = "success"
+    message: str
+    data: Transaction
+
+
 class AutomationRequest(BaseModel):
     recipient: str = Field(min_length=1, max_length=120)
     amount: float = Field(gt=0)
     category: str = Field(min_length=1, max_length=80)
     frequency: str = Field(default="monthly", min_length=1, max_length=40)
-    schedule_day: int = Field(default=1, ge=1, le=28)
+    schedule_day: int = Field(default=1, ge=1, le=32)
     reminder_days: int = Field(default=3, ge=0, le=30)
     start_date: Date | None = None
     source: str | None = None

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, Response, status
 
 from backend.database.db_handler import delete_transaction, get_transaction, load_transactions, upsert_transaction
-from backend.database.models import Transaction, TransactionCreate, TransactionUpdate
-from backend.routes.dependencies import get_current_user
+from backend.database.models import Transaction, TransactionCreate, TransactionCreateResponse, TransactionUpdate
 
-router = APIRouter(prefix="/transactions", tags=["transactions"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/transactions", tags=["transactions"])
 
 
 @router.get("", response_model=list[Transaction])
@@ -22,10 +21,11 @@ def read_transaction(transaction_id: str) -> Transaction:
     return transaction
 
 
-@router.post("", response_model=Transaction, status_code=status.HTTP_201_CREATED)
-def create_transaction(payload: TransactionCreate) -> Transaction:
+@router.post("", response_model=TransactionCreateResponse)
+def create_transaction(payload: TransactionCreate) -> TransactionCreateResponse:
     transaction = Transaction.model_validate(payload.model_dump())
-    return upsert_transaction(transaction)
+    saved = upsert_transaction(transaction)
+    return TransactionCreateResponse(message="Transaction stored successfully", data=saved)
 
 
 @router.put("/{transaction_id}", response_model=Transaction)

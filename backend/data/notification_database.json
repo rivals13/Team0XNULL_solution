@@ -1,81 +1,132 @@
 {
   "database": "notifications",
-  "description": "Stores detected recurring utility payments that have been flagged by the system but not yet scheduled or dismissed by the user. Each entry represents a service provider with recurring transactions meeting the threshold of 5 or more occurrences in a year. Status remains 'pending' until the user takes action.",
+  "description": "Stores detected recurring utility and top-up payment priorities for user review.",
   "records": [
     {
-      "notification_id": "notif001",
-      "service_provider": "Nabil Bank",
-      "category": "Financial",
-      "occurrences_in_year": 10,
-      "year": 2024,
-      "transaction_ids": ["txn002", "txn007", "txn011", "txn016", "txn021", "txn026", "txn031", "txn036", "txn041", "txn046", "txn051", "txn056"],
-      "amount_range": {
-        "min": 20000,
-        "max": 50000
+      "notification_id": "NOTIF-7778AE33AF",
+      "service_provider": "Nabil Bank Loan",
+      "category": "financial",
+      "payment_family": "utilities",
+      "wallet": null,
+      "currency": null,
+      "occurrences_in_year": 9,
+      "average_amount": 50138.89,
+      "latest_amount": 50300.0,
+      "due_amount": 50138.89,
+      "first_transaction_date": "2025-02-05",
+      "latest_transaction_date": "2026-06-05",
+      "due_date": "2026-08-05",
+      "notification_window": {
+        "start": "2026-07-26",
+        "end": "2026-07-29"
       },
-      "average_amount": 27500,
-      "detected_on": "2024-12-31",
-      "status": "pending"
+      "reminders": {
+        "10_days_before": "2026-07-26",
+        "4_days_before": "2026-08-01",
+        "1_days_before": "2026-08-04"
+      },
+      "transaction_ids": [
+        "TXN18",
+        "TXN19",
+        "TXN20",
+        "TXN21",
+        "TXN22",
+        "TXN23",
+        "TXN24",
+        "TXN25",
+        "TXN26"
+      ],
+      "merchant_reference": {
+        "source": "history_reference",
+        "request_url": null,
+        "due_amount": 50138.89,
+        "due_date": "2026-08-05",
+        "response": {
+          "provider": "Nabil Bank Loan",
+          "category": "financial",
+          "average_amount": 50138.89,
+          "latest_amount": 50300.0
+        },
+        "captured_at": "2026-06-05T00:00:00Z"
+      },
+      "frequency_tier": "recurring",
+      "status": "pending",
+      "detected_on": "2026-05-30",
+      "priority_score": 0.97,
+      "priority": {
+        "payment_count": 9,
+        "average_amount": 50138.89,
+        "latest_transaction_date": "2026-06-05",
+        "priority_score": 0.97,
+        "late_fee_risk": 1.0,
+        "frequency_score": 0.9,
+        "user_behavior_score": 0.9782770025714377,
+        "sort_rule": "amount -> frequency -> recency -> alphabetical"
+      },
+      "priority_rank": 1
     },
     {
-      "notification_id": "notif002",
-      "service_provider": "Nepal Electricity Authority",
-      "category": "Utilities",
-      "occurrences_in_year": 12,
-      "year": 2024,
-      "transaction_ids": ["txn003", "txn008", "txn012", "txn017", "txn022", "txn027", "txn032", "txn037", "txn042", "txn047", "txn052", "txn057"],
-      "amount_range": {
-        "min": 1500,
-        "max": 2400
+      "notification_id": "NOTIF-0BFB4DA7C6",
+      "service_provider": "NEA WiFi Bill",
+      "category": "utilities",
+      "payment_family": "utilities",
+      "wallet": null,
+      "currency": null,
+      "occurrences_in_year": 8,
+      "average_amount": 1010.0,
+      "latest_amount": 1035.0,
+      "due_amount": 1010.0,
+      "first_transaction_date": "2025-01-30",
+      "latest_transaction_date": "2026-03-30",
+      "due_date": "2026-05-30",
+      "notification_window": {
+        "start": "2026-05-20",
+        "end": "2026-05-23"
       },
-      "average_amount": 1871,
-      "detected_on": "2024-12-31",
-      "status": "pending"
-    },
-    {
-      "notification_id": "notif003",
-      "service_provider": "Vianet Communications",
-      "category": "Utilities",
-      "occurrences_in_year": 12,
-      "year": 2024,
-      "transaction_ids": ["txn004", "txn009", "txn013", "txn018", "txn023", "txn028", "txn033", "txn038", "txn043", "txn048", "txn053", "txn058"],
-      "amount_range": {
-        "min": 1200,
-        "max": 1400
+      "reminders": {
+        "10_days_before": "2026-05-20",
+        "4_days_before": "2026-05-26",
+        "1_days_before": "2026-05-29"
       },
-      "average_amount": 1233,
-      "detected_on": "2024-12-31",
-      "status": "pending"
-    },
-    {
-      "notification_id": "notif004",
-      "service_provider": "LBEF College",
-      "category": "Education",
-      "occurrences_in_year": 6,
-      "year": 2024,
-      "transaction_ids": ["txn001", "txn006", "txn014", "txn024", "txn034", "txn044", "txn054"],
-      "amount_range": {
-        "min": 50000,
-        "max": 80000
+      "transaction_ids": [
+        "TXN10",
+        "TXN11",
+        "TXN12",
+        "TXN13",
+        "TXN14",
+        "TXN15",
+        "TXN16",
+        "TXN17"
+      ],
+      "merchant_reference": {
+        "source": "history_reference",
+        "request_url": null,
+        "due_amount": 1010.0,
+        "due_date": "2026-05-30",
+        "response": {
+          "provider": "NEA WiFi Bill",
+          "category": "utilities",
+          "average_amount": 1010.0,
+          "latest_amount": 1035.0
+        },
+        "captured_at": "2026-03-30T00:00:00Z"
       },
-      "average_amount": 62857,
-      "detected_on": "2024-12-31",
-      "status": "pending"
-    },
-    {
-      "notification_id": "notif005",
-      "service_provider": "Kathmandu University",
-      "category": "Education",
-      "occurrences_in_year": 5,
-      "year": 2024,
-      "transaction_ids": ["txn019", "txn029", "txn039", "txn049", "txn059"],
-      "amount_range": {
-        "min": 95000,
-        "max": 95000
+      "frequency_tier": "recurring",
+      "status": "scheduled",
+      "detected_on": "2026-05-30",
+      "priority_score": 0.94,
+      "priority": {
+        "payment_count": 8,
+        "average_amount": 1010.0,
+        "latest_transaction_date": "2026-03-30",
+        "priority_score": 0.94,
+        "late_fee_risk": 1.0,
+        "frequency_score": 0.8,
+        "user_behavior_score": 0.9752639422601379,
+        "sort_rule": "amount -> frequency -> recency -> alphabetical"
       },
-      "average_amount": 95000,
-      "detected_on": "2024-12-31",
-      "status": "pending"
+      "priority_rank": 2,
+      "scheduled_at": "2026-05-30T12:58:41Z"
     }
   ]
 }

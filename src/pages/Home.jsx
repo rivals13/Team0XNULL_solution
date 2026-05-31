@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import Notification from "./Notification";
+import { fetchNotifications, fetchSchedules, ignoreScheduledPayment, createSchedule } from "../services/automationApi";
+import { resolveScheduleSaveOutcome } from "../services/schedulePersistence";
 
 // Image Assets
-import vianetImg from "../assets/vianet.png";
 import neaImg from "../assets/nea.jpg";
-import lbefImg from "../assets/lbef.jpg";
 
 const Icon = ({ name, fill = 0, size = 24, className = "" }) => (
   <span
@@ -35,9 +34,11 @@ const Home = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [isSearchingNotifications, setIsSearchingNotifications] =
     useState(false);
+  const [liveNotifications, setLiveNotifications] = useState([]);
+  const [liveSchedules, setLiveSchedules] = useState([]);
 
   const [showPaymentPortal, setShowPaymentPortal] = useState(false);
-  const [paymentDetails, setPaymentDetails] = useState(null);
+  const [paymentDetails] = useState(null);
 
   // NEW STATES
   const [showRecurringPrompt, setShowRecurringPrompt] = useState(false);
@@ -52,6 +53,60 @@ const Home = () => {
 
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadBackendData = async () => {
+      try {
+        const [notifications, schedules] = await Promise.all([fetchNotifications(), fetchSchedules()]);
+        if (isMounted) {
+          setLiveNotifications(notifications);
+          setLiveSchedules(schedules);
+        }
+      } catch {
+        if (isMounted) {
+          setLiveNotifications([]);
+          setLiveSchedules([]);
+        }
+      }
+    };
+
+    loadBackendData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const normalizeScheduleLabel = (value) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
+
+  const resolveNotificationForPayment = () => {
+    const targetLabel = normalizeScheduleLabel(paymentDetails?.name);
+    return liveNotifications.find((item) => normalizeScheduleLabel(item.service_provider) === targetLabel) ?? null;
+  };
+
+  const handleIgnoreSchedule = async (schedule) => {
+    if (!schedule?.schedule_id) {
+      return;
+    }
+
+    try {
+      const response = await ignoreScheduledPayment(schedule.schedule_id);
+      const archivedNotification = response.notification ?? null;
+
+      setLiveSchedules((current) => current.filter((item) => String(item.schedule_id) !== String(schedule.schedule_id)));
+
+      if (archivedNotification?.notification_id) {
+        setLiveNotifications((current) => {
+          const filtered = current.filter((item) => String(item.notification_id) !== String(archivedNotification.notification_id));
+          return [...filtered, archivedNotification];
+        });
+      }
+    } catch {
+      alert("Unable to ignore that schedule right now. Please try again.");
+    }
+  };
 
   const handleBellClick = () => {
     if (!showDropdown) {
@@ -79,18 +134,7 @@ const Home = () => {
     setWalkthroughStep("intro");
   };
 
-  const openLBEFPayment = () => {
-    setPaymentDetails({
-      name: "LBEF College Fee",
-      id: "STU-9841-2024",
-      amount: "150,000",
-      type: "College Fee",
-      icon: lbefImg,
-    });
-
-    setShowDropdown(false);
-    setShowPaymentPortal(true);
-  };
+  
 
   // NEW: Handle Pay Now — show paid confirmation then recurring prompt
   const handlePayNow = () => {
@@ -105,11 +149,7 @@ const Home = () => {
     }, 2000);
   };
 
-  // NEW: Handle NEA notification click
-  const openNEAAlert = () => {
-    setShowDropdown(false);
-    setShowNEAAlert(true);
-  };
+  
 
   return (
     <div className="bg-[#f7faf9] text-[#181c1c] min-h-screen pb-28 font-sans relative">
@@ -489,9 +529,52 @@ const Home = () => {
             <div className="grid grid-cols-2 gap-4">
               <button
                 className="py-4 rounded-2xl border-2 border-[#00654b] text-[#00654b] font-bold active:scale-95 transition-all"
-                onClick={() => {
-                  alert("Scheduled Successfully!");
-                  setShowPaymentPortal(false);
+                onClick={async () => {
+                  try {
+                    const matchedNotification = resolveNotificationForPayment();
+
+                    if (!matchedNotification?.notification_id) {
+                      throw new Error("This payment cannot be scheduled yet because the backend notification was not found.");
+                    }
+
+                    // Prepare and validate scheduled values before calling API
+                    const scheduledDate = matchedNotification.due_date ?? matchedNotification.latest_transaction_date ?? null;
+                    const rawAmount = paymentDetails?.amount ? Number(String(paymentDetails.amount).replace(/,/g, "")) : null;
+
+                    if (rawAmount !== null && !Number.isFinite(rawAmount)) {
+                      alert("Invalid scheduled amount. Please enter a numeric amount.");
+                      return;
+                    }
+
+                    // if (scheduledDate) {
+                    //   const parsed = Date.parse(scheduledDate);
+                    //   if (Number.isNaN(parsed)) {
+                    //     alert("Invalid scheduled date format.");
+                    //     return;
+                    //   }
+                    // }
+
+                    const response = await createSchedule(matchedNotification.notification_id, scheduledDate, rawAmount);
+
+                    const outcome = resolveScheduleSaveOutcome(response);
+                    if (!outcome.ok) {
+                      throw new Error(outcome.message);
+                    }
+
+                    alert(outcome.message);
+                    setShowPaymentPortal(false);
+                    setLiveSchedules((current) => {
+                      const scheduledItem = outcome.scheduledItem;
+                      if (!scheduledItem) {
+                        return current;
+                      }
+
+                      const filteredSchedules = current.filter((item) => String(item.notification_id) !== String(scheduledItem.notification_id));
+                      return [...filteredSchedules, scheduledItem];
+                    });
+                  } catch {
+                    alert("Save failed");
+                  }
                 }}
               >
                 Schedule
@@ -703,79 +786,32 @@ const Home = () => {
                     </div>
                   ) : (
                     <div className="p-3 space-y-3">
+                      {(liveNotifications.length > 0 ? liveNotifications : []).slice(0, 3).map((item, index) => (
+                        <div
+                          key={item.notification_id ?? item.id ?? index}
+                          className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-[24px] transition-colors animate-stagger-2 border border-gray-100"
+                        >
+                          <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-gray-100 flex items-center justify-center">
+                            <Icon name="notifications_active" size={18} className="text-[#00654b]" />
+                          </div>
 
-                      {/* LBEF notification — unchanged */}
-                      <div
-                        onClick={openLBEFPayment}
-                        className="flex items-center gap-4 p-4 bg-red-50 hover:bg-red-100 rounded-[24px] transition-all cursor-pointer border border-red-100 animate-stagger-1"
-                      >
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1">
-                          <img
-                            src={lbefImg}
-                            alt="LBEF"
-                            className="w-full h-full object-contain"
-                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-extrabold text-gray-800">
+                              {item.service_provider ?? item.notification_id ?? "Live notification"}
+                            </p>
+
+                            <p className="text-[11px] text-gray-500 font-medium truncate">
+                              Due {item.due_date ?? item.latest_transaction_date ?? "soon"} · Rank #{item.priority_rank ?? "-"}
+                            </p>
+                          </div>
                         </div>
+                      ))}
 
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-extrabold text-red-700">LBEF College Fee</p>
-
-                          <p className="text-[11px] text-red-600 font-medium truncate">
-                            You have NPR 150,000 due
-                          </p>
+                      {liveNotifications.length === 0 && (
+                        <div className="text-center text-xs text-gray-400 py-6">
+                          No live notifications from the backend yet.
                         </div>
-
-                        <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-                      </div>
-
-                      {/* Vianet notification — unchanged */}
-                      <div className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-[24px] transition-colors animate-stagger-2">
-
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-gray-100">
-                          <img
-                            src={vianetImg}
-                            alt="Vianet"
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-bold text-gray-800">
-                            Vianet Fiber
-                          </p>
-
-                          <p className="text-[11px] text-gray-500 font-medium">
-                            Monthly bill is due
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* NEW: NEA insufficient funds notification */}
-                      <div
-                        onClick={openNEAAlert}
-                        className="flex items-center gap-4 p-4 bg-amber-50 hover:bg-amber-100 rounded-[24px] transition-all cursor-pointer border border-amber-100 animate-stagger-3"
-                      >
-                        <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 bg-white p-1 border border-amber-100">
-                          <img
-                            src={neaImg}
-                            alt="NEA"
-                            className="w-full h-full object-contain"
-                          />
-                        </div>
-
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-extrabold text-amber-700">
-                            NEA Wi-Fi Bill
-                          </p>
-
-                          <p className="text-[11px] text-amber-600 font-medium truncate">
-                            Scheduled payment failed on 2025-07-30 — low balance
-                          </p>
-                        </div>
-
-                        <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                      </div>
-
+                      )}
                     </div>
                   )}
                 </div>
@@ -868,32 +904,62 @@ const Home = () => {
             </div>
 
             <div className="flex gap-4 overflow-x-auto pb-4 -mx-5 px-5 scrollbar-hide">
-
-              <ScheduleCard
-                img={vianetImg}
-                title="Vianet Fiber"
-                subtitle="Due in 2 days"
-                amount="NPR 1,750"
-                bg="bg-red-50"
-              />
-
-              <ScheduleCard
-                img={neaImg}
-                title="NEA Wi-Fi Bill"
-                subtitle="Due on 2025-07-30"
-                amount="NPR 1,000"
-                bg="bg-blue-50"
-              />
-
-              <ScheduleCard
-                icon="account_balance"
-                title="Nabil Bank Loan"
-                subtitle="Monthly repayment"
-                amount="NPR 50,000"
-                bg="bg-amber-50"
-                iconBg="bg-amber-100"
-                iconColor="text-amber-700"
-              />
+              {(liveSchedules.length > 0
+                ? liveSchedules.map((schedule) => ({
+                  key: schedule.schedule_id ?? schedule.notification_id,
+                  title: schedule.service_provider ?? "Scheduled payment",
+                  subtitle: `${schedule.status ?? "upcoming"} · ${schedule.scheduled_date ?? "No date"}`,
+                  amount: `NPR ${Number(schedule.scheduled_amount ?? 0).toLocaleString()}`,
+                  bg: schedule.status === "scheduled" ? "bg-emerald-50" : "bg-blue-50",
+                  icon: "calendar_month",
+                  iconBg: "bg-emerald-100",
+                  iconColor: "text-[#00654b]",
+                  onIgnore: () => handleIgnoreSchedule(schedule),
+                }))
+                : [
+                  {
+                    key: "fallback-vianet",
+                    title: "Vianet Fiber",
+                    subtitle: "Due in 2 days",
+                    amount: "NPR 1,750",
+                    bg: "bg-red-50",
+                    icon: "calendar_month",
+                    iconBg: "bg-white",
+                    iconColor: "text-[#00654b]",
+                  },
+                  {
+                    key: "fallback-nea",
+                    title: "NEA Wi-Fi Bill",
+                    subtitle: "Due on 2025-07-30",
+                    amount: "NPR 1,000",
+                    bg: "bg-blue-50",
+                    icon: "calendar_month",
+                    iconBg: "bg-white",
+                    iconColor: "text-[#00654b]",
+                  },
+                  {
+                    key: "fallback-nabil",
+                    title: "Nabil Bank Loan",
+                    subtitle: "Monthly repayment",
+                    amount: "NPR 50,000",
+                    bg: "bg-amber-50",
+                    icon: "account_balance",
+                    iconBg: "bg-amber-100",
+                    iconColor: "text-amber-700",
+                  },
+                ]).map((schedule) => (
+                <ScheduleCard
+                  key={schedule.key}
+                  title={schedule.title}
+                  subtitle={schedule.subtitle}
+                  amount={schedule.amount}
+                  bg={schedule.bg}
+                  icon={schedule.icon}
+                  iconBg={schedule.iconBg}
+                  iconColor={schedule.iconColor}
+                  onIgnore={schedule.onIgnore}
+                />
+              ))}
             </div>
           </section>
 
@@ -1036,6 +1102,7 @@ const ScheduleCard = ({
   bg,
   iconBg = "bg-white",
   iconColor = "text-[#00654b]",
+  onIgnore,
 }) => (
   <div className="min-w-[240px] bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4 active:scale-95 transition-transform">
 
@@ -1064,9 +1131,21 @@ const ScheduleCard = ({
         {subtitle}
       </p>
 
-      <p className="text-sm font-extrabold text-[#00654b] mt-0.5">
-        {amount}
-      </p>
+      <div className="mt-0.5 flex items-center gap-2">
+        <p className="text-sm font-extrabold text-[#00654b]">
+          {amount}
+        </p>
+
+        {onIgnore ? (
+          <button
+            type="button"
+            onClick={onIgnore}
+            className="rounded-full border border-emerald-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700 transition-transform active:scale-95"
+          >
+            Ignore
+          </button>
+        ) : null}
+      </div>
     </div>
   </div>
 );

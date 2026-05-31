@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from backend.database.models import PatternInsight, Transaction
-from .trainer import train_pattern_model
+from .trainer import train_pattern_model, MIN_OCCURRENCES
 from .utils import group_transactions
 
 
@@ -12,12 +12,21 @@ def _estimate_next_due_date(transaction_date, average_interval_days: float) -> s
     return (transaction_date + timedelta(days=max(interval_days, 1))).isoformat()
 
 
-def detect_recurring_patterns(transactions: list[Transaction]) -> list[PatternInsight]:
+def detect_recurring_patterns(transactions: list[Transaction], top_k: int | None = None) -> list[PatternInsight]:
     grouped_patterns = group_transactions(transactions)
+    # filter out low-frequency groups that don't meet minimum occurrence
+    grouped_patterns = [p for p in grouped_patterns if int(p["payment_count"]) >= MIN_OCCURRENCES]
     if not grouped_patterns:
         return []
 
-    training_result = train_pattern_model(transactions)
+    # ensure patterns are ordered by priority (highest payment_count first)
+    grouped_patterns.sort(key=lambda item: (int(item["payment_count"]), float(item["average_interval_days"])), reverse=True)
+
+    # optionally limit to top-K priority patterns
+    if top_k is not None and top_k > 0:
+        grouped_patterns = grouped_patterns[:top_k]
+
+    training_result = train_pattern_model(transactions, top_k=top_k)
     model = training_result.model
 
     insights: list[PatternInsight] = []

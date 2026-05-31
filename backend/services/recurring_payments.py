@@ -22,7 +22,7 @@ DEFAULT_CONFIG = {
     "min_occurrences": 5,
     "lookback_days": 365,
     "paths": {
-        "transactions": "data/transaction_database.json",
+        "transactions": "data/transactions.json",
         "notifications": "data/notification_database.json",
         "schedules": "data/schedule_database.json",
     },
@@ -171,6 +171,10 @@ def load_transactions_dataframe() -> pd.DataFrame:
     frame = pd.DataFrame(records)
     if "id" not in frame.columns and "transaction_id" in frame.columns:
         frame = frame.rename(columns={"transaction_id": "id"})
+    if "service_provider" not in frame.columns and "recipient" in frame.columns:
+        frame = frame.rename(columns={"recipient": "service_provider"})
+    if "type" not in frame.columns:
+        frame["type"] = "recurring"
 
     expected_columns = ["id", "service_provider", "category", "amount", "date", "type"]
     for column in expected_columns:

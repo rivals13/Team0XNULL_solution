@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { createAutomationRule } from "../services/automationApi";
+import { createAutomationRule, fetchAutomations } from "../services/automationApi";
 
 const Icon = ({ name, fill = 0, size = 24, className = "" }) => (
   <span
@@ -24,29 +24,74 @@ const defaultForm = {
   startDate: "2026-04-15",
 };
 
+function buildFormFromSuggestion(suggestion) {
+  if (!suggestion) {
+    return defaultForm;
+  }
+
+  const inferredDay = suggestion.next_due_date ? String(new Date(suggestion.next_due_date).getDate()) : defaultForm.scheduleDay;
+  return {
+    recipient: suggestion.recipient ?? defaultForm.recipient,
+    amount: String(suggestion.amount ?? defaultForm.amount),
+    category: suggestion.category ?? defaultForm.category,
+    frequency: suggestion.payment_count >= 2 ? "monthly" : defaultForm.frequency,
+    scheduleDay: inferredDay,
+    reminderDays: defaultForm.reminderDays,
+    startDate: suggestion.next_due_date ?? defaultForm.startDate,
+  };
+}
+
 export default function AutomationDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const suggestion = location.state?.suggestion;
-  const [form, setForm] = useState(defaultForm);
+  const [form, setForm] = useState(() => buildFormFromSuggestion(suggestion));
   const [saving, setSaving] = useState(false);
   const [savedAutomation, setSavedAutomation] = useState(null);
+  const [savedAutomations, setSavedAutomations] = useState([]);
+  const [authExpired, setAuthExpired] = useState(false);
 
   useEffect(() => {
-    if (!suggestion) {
-      return;
-    }
+    let isMounted = true;
 
-    const inferredDay = suggestion.next_due_date ? String(new Date(suggestion.next_due_date).getDate()) : defaultForm.scheduleDay;
-    setForm({
-      recipient: suggestion.recipient ?? defaultForm.recipient,
-      amount: String(suggestion.amount ?? defaultForm.amount),
-      category: suggestion.category ?? defaultForm.category,
-      frequency: suggestion.payment_count >= 2 ? "monthly" : defaultForm.frequency,
-      scheduleDay: inferredDay,
-      reminderDays: defaultForm.reminderDays,
-      startDate: suggestion.next_due_date ?? defaultForm.startDate,
-    });
+    const loadSavedAutomations = async () => {
+      try {
+        const automations = await fetchAutomations();
+        if (!isMounted || !Array.isArray(automations) || automations.length === 0) {
+          if (isMounted) {
+            setSavedAutomations([]);
+          }
+          return;
+        }
+
+        const latestAutomation = automations[automations.length - 1];
+        setSavedAutomations(automations);
+        setSavedAutomation(latestAutomation);
+
+        if (!suggestion) {
+          setForm({
+            recipient: latestAutomation.recipient ?? defaultForm.recipient,
+            amount: String(latestAutomation.amount ?? defaultForm.amount),
+            category: latestAutomation.category ?? defaultForm.category,
+            frequency: latestAutomation.frequency ?? defaultForm.frequency,
+            scheduleDay: String(latestAutomation.schedule_day ?? defaultForm.scheduleDay),
+            reminderDays: String(latestAutomation.reminder_days ?? defaultForm.reminderDays),
+            startDate: latestAutomation.start_date ?? defaultForm.startDate,
+          });
+        }
+      } catch {
+        if (isMounted) {
+          setSavedAutomation(null);
+          setSavedAutomations([]);
+        }
+      }
+    };
+
+    loadSavedAutomations();
+
+    return () => {
+      isMounted = false;
+    };
   }, [suggestion]);
 
   const handleChange = (field) => (event) => {
@@ -59,6 +104,7 @@ export default function AutomationDashboard() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setSaving(true);
+    setAuthExpired(false);
 
     try {
       const payload = {
@@ -72,8 +118,27 @@ export default function AutomationDashboard() {
         source: suggestion?.pattern_id ?? null,
       };
 
+      // Validate schedule_day on the client to prevent invalid submissions
+      const sd = Number(payload.schedule_day);
+      if (!Number.isInteger(sd) || sd < 1 || sd > 32) {
+        alert("Schedule day must be an integer between 1 and 32.");
+        return;
+      }
+
       const response = await createAutomationRule(payload);
-      setSavedAutomation(response.automation ?? response);
+      const savedRecord = response.automation ?? response;
+      setSavedAutomation(savedRecord);
+      setSavedAutomations((current) => {
+        const filtered = current.filter((item) => item.automation_id !== savedRecord.automation_id);
+        return [...filtered, savedRecord];
+      });
+    } catch (error) {
+      const msg = String(error?.message ?? "").toLowerCase();
+      if (msg.includes("invalid token") || msg.includes("authentication required")) {
+        setAuthExpired(true);
+      } else {
+        alert(error?.message ?? "Save failed");
+      }
     } finally {
       setSaving(false);
     }
@@ -87,6 +152,11 @@ export default function AutomationDashboard() {
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap');`}</style>
 
       <header className="px-5 pt-5">
+        {authExpired && (
+          <div className="mb-4 rounded-md bg-red-50 border border-red-200 p-3 text-red-800">
+            Session expired, please log in again.
+          </div>
+        )}
         <button
           onClick={() => navigate(-1)}
           className="mb-4 inline-flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-xs font-bold shadow-sm transition-transform active:scale-95"
@@ -182,11 +252,33 @@ export default function AutomationDashboard() {
                 {savedAutomation.recipient} has been configured for {savedAutomation.frequency} payments.
               </p>
             </div>
-          ) : (
-            <div className="rounded-[28px] border border-dashed border-slate-300 bg-white p-5 text-sm text-slate-600">
-              After saving, the rule is stored alongside the JSON transaction history and can be reused by the schedules module.
+          ) : null}
+
+          <div className="rounded-[28px] border bg-white p-5 shadow-[0_12px_28px_-18px_rgba(18,33,26,0.35)]" style={{ borderColor: "rgba(189,201,194,0.55)" }}>
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-[#102219]">Saved automations</h3>
+                <p className="mt-1 text-sm text-slate-500">Loaded from the backend, so refresh keeps the same rules visible.</p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">{savedAutomations.length} saved</span>
             </div>
-          )}
+
+            <div className="mt-4 grid gap-3">
+              {savedAutomations.length > 0 ? savedAutomations.map((automation) => (
+                <article key={automation.automation_id} className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-[#102219]">{automation.recipient}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {automation.category} · day {automation.schedule_day} · {automation.frequency}
+                      </p>
+                    </div>
+                    <p className="text-sm font-extrabold text-[#00654b]">NPR {Number(automation.amount).toLocaleString()}</p>
+                  </div>
+                </article>
+              )) : null}
+            </div>
+          </div>
         </section>
       </main>
     </div>

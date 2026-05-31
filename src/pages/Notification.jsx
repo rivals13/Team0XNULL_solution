@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import { fetchNotifications } from '../services/automationApi';
 
 const Icon = ({ name, className = "" }) => (
   <span className={`material-symbols-outlined ${className}`}>{name}</span>
@@ -6,20 +7,49 @@ const Icon = ({ name, className = "" }) => (
 
 const Notification = ({ onClose }) => {
   const [visibleItems, setVisibleItems] = useState([]);
-  
-  const allNotifications = [
-    { id: 1, title: "Payment Received", desc: "NPR 500 received from Rabin.", time: "2m ago", icon: "add_circle", color: "text-green-600", bg: "bg-green-50" },
-    { id: 2, title: "Bill Reminder", desc: "Your Vianet bill is due in 2 days.", time: "1h ago", icon: "warning", color: "text-orange-600", bg: "bg-orange-50" },
-    { id: 3, title: "Cashback Alert", desc: "You earned NPR 50 cashback on Topup!", time: "3h ago", icon: "redeem", color: "text-purple-600", bg: "bg-purple-50" },
-  ];
 
   useEffect(() => {
-    // Simulate notifications "arriving" one by one
-    allNotifications.forEach((_, index) => {
-      setTimeout(() => {
-        setVisibleItems(prev => [...prev, allNotifications[index]]);
-      }, (index + 1) * 600); // 600ms staggered delay
-    });
+    let isMounted = true;
+
+    const loadNotifications = async () => {
+      try {
+        const notifications = await fetchNotifications();
+        const normalizedItems = (Array.isArray(notifications) ? notifications : []).map((item, index) => ({
+          id: item.notification_id ?? item.id ?? index,
+          title: item.service_provider ?? item.notification_id ?? "Live notification",
+          desc: `Due ${item.due_date ?? item.latest_transaction_date ?? "soon"} · NPR ${Number(item.due_amount ?? item.average_amount ?? 0).toLocaleString()}`,
+          time: item.priority_rank ? `Priority #${item.priority_rank}` : "Live",
+          icon: "notifications_active",
+          color: "text-[#00654b]",
+          bg: "bg-emerald-50",
+        }));
+
+        if (isMounted) {
+          if (normalizedItems.length === 0) {
+            setVisibleItems([]);
+            return;
+          }
+
+          normalizedItems.forEach((item, index) => {
+            setTimeout(() => {
+              if (isMounted) {
+                setVisibleItems((prev) => [...prev, item]);
+              }
+            }, (index + 1) * 350);
+          });
+        }
+      } catch {
+        if (isMounted) {
+          setVisibleItems([]);
+        }
+      }
+    };
+
+    loadNotifications();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (

@@ -3,7 +3,7 @@
   "min_occurrences": 5,
   "lookback_days": 365,
   "paths": {
-    "transactions": "data/transaction_database.json",
+    "transactions": "data/transactions.json",
     "notifications": "data/notification_database.json",
     "schedules": "data/schedule_database.json"
   }

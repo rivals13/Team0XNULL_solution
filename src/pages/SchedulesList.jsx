@@ -43,7 +43,7 @@ export default function SchedulesList() {
         patterns: data.patterns ?? [],
       });
       setLastSync(new Date());
-    } catch (error) {
+    } catch {
       setSnapshot({ transactions: [], patterns: [fallbackSummary] });
       setLastSync(new Date());
     } finally {
@@ -52,17 +52,50 @@ export default function SchedulesList() {
   };
 
   useEffect(() => {
-    refreshSnapshot();
+    const startTimer = window.setTimeout(() => {
+      void refreshSnapshot();
+    }, 0);
     const intervalId = window.setInterval(refreshSnapshot, 30000);
-    return () => window.clearInterval(intervalId);
+    return () => {
+      window.clearTimeout(startTimer);
+      window.clearInterval(intervalId);
+    };
   }, []);
 
   const topPattern = snapshot.patterns[0] ?? fallbackSummary;
   const visiblePatterns = showAllPatterns ? snapshot.patterns : snapshot.patterns.slice(0, 2);
-  const recurringTransactions = useMemo(
-    () => snapshot.transactions.filter((transaction) => transaction.recipient === topPattern.recipient),
-    [snapshot.transactions, topPattern.recipient],
-  );
+  const merchantTransactions = useMemo(() => {
+    const groupedTransactions = new Map();
+
+    snapshot.transactions.forEach((transaction) => {
+      const merchantName = transaction.recipient ?? "Unknown merchant";
+      const existingSummary = groupedTransactions.get(merchantName) ?? {
+        merchant_name: merchantName,
+        category: transaction.category ?? "unknown",
+        transaction_count: 0,
+        latest_amount: Number(transaction.amount ?? 0),
+        latest_date: transaction.date ?? "",
+      };
+
+      existingSummary.transaction_count += 1;
+      const transactionDate = transaction.date ?? "";
+      if (!existingSummary.latest_date || transactionDate > existingSummary.latest_date) {
+        existingSummary.latest_date = transactionDate;
+        existingSummary.latest_amount = Number(transaction.amount ?? 0);
+        existingSummary.category = transaction.category ?? existingSummary.category;
+      }
+
+      groupedTransactions.set(merchantName, existingSummary);
+    });
+
+    return Array.from(groupedTransactions.values()).sort(
+      (left, right) =>
+        right.transaction_count - left.transaction_count ||
+        right.latest_amount - left.latest_amount ||
+        right.latest_date.localeCompare(left.latest_date) ||
+        left.merchant_name.localeCompare(right.merchant_name),
+    );
+  }, [snapshot.transactions]);
 
   const handleAutomate = () => {
     navigate("/automation-dashboard", {
@@ -219,17 +252,17 @@ export default function SchedulesList() {
             </span>
           </div>
           <div className="grid gap-3">
-            {recurringTransactions.map((transaction) => (
-              <article key={transaction.transaction_id} className="rounded-2xl border bg-white p-4 shadow-sm" style={{ borderColor: "rgba(189,201,194,0.4)" }}>
+            {merchantTransactions.map((transaction) => (
+              <article key={transaction.merchant_name} className="rounded-2xl border bg-white p-4 shadow-sm" style={{ borderColor: "rgba(189,201,194,0.4)" }}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-bold text-[#102219]">{transaction.recipient}</p>
+                    <p className="text-sm font-bold text-[#102219]">{transaction.merchant_name}</p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {transaction.category} · {transaction.date}
+                      {transaction.category} · {transaction.transaction_count} payments · {transaction.latest_date}
                     </p>
                   </div>
                   <p className="text-sm font-extrabold text-[#00654b]">
-                    NPR {Number(transaction.amount).toLocaleString()}
+                    NPR {Number(transaction.latest_amount).toLocaleString()}
                   </p>
                 </div>
               </article>
