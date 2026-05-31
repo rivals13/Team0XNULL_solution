@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Notification from "./Notification";
+import { ChatbotFAB } from "./Chatbotfab";
 
-import vianetImg  from "../assets/vianet.png";
-import neaImg     from "../assets/nea.jpg";
-import esewaLogo  from "../assets/images.jpeg";
+import vianetImg from "../assets/vianet.png";
+import neaImg    from "../assets/nea.jpg";
+import esewaLogo from "../assets/images.jpeg";
 import lbefImg   from "../assets/lbef.jpg";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const Icon = ({ name, fill = 0, size = 24, className = "" }) => (
   <span
@@ -20,34 +23,55 @@ const Icon = ({ name, fill = 0, size = 24, className = "" }) => (
 );
 
 const Home = () => {
-  const navigate  = useNavigate();
-  const location  = useLocation();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-  // Walkthrough - shows ONLY on first visit using localStorage
-  const [showWalkthrough,    setShowWalkthrough]    = useState(() => {
-    const hasSeenWalkthrough = localStorage.getItem("hasSeenWalkthrough");
-    return !hasSeenWalkthrough; // show only if NEVER seen before
-  });
-  const [walkthroughStep,    setWalkthroughStep]    = useState("intro");
-  const [selectedUtility,    setSelectedUtility]    = useState(null);
-  const [showExitConfirm,    setShowExitConfirm]    = useState(false);
+  // Walkthrough — persisted in localStorage
+  const [showWalkthrough, setShowWalkthrough] = useState(() => !localStorage.getItem("hasSeenWalkthrough"));
+  const [walkthroughStep, setWalkthroughStep] = useState("intro");
+  const [selectedUtility, setSelectedUtility] = useState(null);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   // Dashboard
-  const [isLoadingUtilities,        setIsLoadingUtilities]        = useState(true);
-  const [showFullNotifications,     setShowFullNotifications]     = useState(false);
-  const [showDropdown,              setShowDropdown]              = useState(false);
-  const [isSearchingNotifications,  setIsSearchingNotifications]  = useState(false);
-  const [showPaymentPortal,         setShowPaymentPortal]         = useState(false);
-  const [paymentDetails,            setPaymentDetails]            = useState(null);
-  const [showRecurringPrompt,       setShowRecurringPrompt]       = useState(false);
-  const [showPaidConfirmation,      setShowPaidConfirmation]      = useState(false);
-  const [paidToName,                setPaidToName]                = useState("");
-  const [showNEAAlert,              setShowNEAAlert]              = useState(false);
+  const [isLoadingUtilities,       setIsLoadingUtilities]       = useState(true);
+  const [showFullNotifications,    setShowFullNotifications]    = useState(false);
+  const [showDropdown,             setShowDropdown]             = useState(false);
+  const [isSearchingNotifications, setIsSearchingNotifications] = useState(false);
+  const [showPaymentPortal,        setShowPaymentPortal]        = useState(false);
+  const [paymentDetails,           setPaymentDetails]           = useState(null);
+  const [showRecurringPrompt,      setShowRecurringPrompt]      = useState(false);
+  const [showPaidConfirmation,     setShowPaidConfirmation]     = useState(false);
+  const [paidToName,               setPaidToName]               = useState("");
+  const [showNEAAlert,             setShowNEAAlert]             = useState(false);
+
+  // ── Live urgent count for ChatbotFAB badge ─────────────────────────────────
+  const [urgentCount,  setUrgentCount]  = useState(2);   // default 2 so badge is never 0
+  const [fabLoading,   setFabLoading]   = useState(true);
 
   useEffect(() => {
     const t = setTimeout(() => setIsLoadingUtilities(false), 2000);
     return () => clearTimeout(t);
   }, []);
+
+  // Fetch live overdue + missed count to drive the FAB badge
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [overdueRes, missedRes] = await Promise.all([
+          fetch(`${API_BASE}/api/bills/overdue`).then(r => r.json()),
+          fetch(`${API_BASE}/api/schedules/missed`).then(r => r.json()),
+        ]);
+        const count = (overdueRes?.length || 0) + (missedRes?.length || 0);
+        setUrgentCount(count > 0 ? count : 2);   // keep 2 as minimum so badge always shows
+      } catch {
+        setUrgentCount(2);   // fallback: we know there are 2 overdue bills from static data
+      } finally {
+        setFabLoading(false);
+      }
+    };
+    load();
+  }, []);
+  // ───────────────────────────────────────────────────────────────────────────
 
   const handleBellClick = () => {
     if (!showDropdown) {
@@ -60,12 +84,8 @@ const Home = () => {
   };
 
   const handleCloseSetup = () => {
-    if (walkthroughStep !== "intro") {
-      setShowExitConfirm(true);
-    } else {
-      localStorage.setItem("hasSeenWalkthrough", "true");
-      setShowWalkthrough(false);
-    }
+    if (walkthroughStep !== "intro") setShowExitConfirm(true);
+    else { localStorage.setItem("hasSeenWalkthrough", "true"); setShowWalkthrough(false); }
   };
 
   const finishSetup = () => {
@@ -75,7 +95,7 @@ const Home = () => {
   };
 
   const openLBEFPayment = () => {
-    setPaymentDetails({ name: "LBEF College", id: "STU-9841-2024", amount: "100,000", type: "Semester Fee", icon: lbefImg });
+    setPaymentDetails({ name:"LBEF College", id:"STU-9841-2024", amount:"100,000", type:"Semester Fee", icon:lbefImg });
     setShowDropdown(false);
     setShowPaymentPortal(true);
   };
@@ -93,7 +113,8 @@ const Home = () => {
   return (
     <div className="bg-[#f7faf9] text-[#181c1c] min-h-screen pb-28 font-sans relative">
       <style>{`
-        .scrollbar-hide::-webkit-scrollbar{display:none}.scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}
+        .scrollbar-hide::-webkit-scrollbar{display:none}
+        .scrollbar-hide{-ms-overflow-style:none;scrollbar-width:none}
         @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
         @keyframes dropdownReveal{from{opacity:0;transform:translateY(-8px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes itemSlideIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -119,7 +140,7 @@ const Home = () => {
             <div className="max-w-md w-full flex flex-col items-center animate-fade-in">
               <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
                 <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-[#a1f3d1] opacity-30 blur-3xl" />
-                <div className="absolute top-1/2 -left-32 w-31.25 h-31.25 rounded-full bg-[#ffdf9f] opacity-20 blur-3xl" />
+                <div className="absolute top-1/2 -left-32 w-125 h-125 rounded-full bg-[#ffdf9f] opacity-20 blur-3xl" />
               </div>
               <div className="relative h-64 w-full flex items-center justify-center mb-12 z-10">
                 <div className="w-48 h-72 bg-linear-to-br from-[#00654b] to-[#004b37] rounded-4xl shadow-2xl rotate-[-10deg] flex flex-col p-6 text-white">
@@ -154,15 +175,8 @@ const Home = () => {
                     className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl active:scale-[0.98] transition-all">
                     Get Started <Icon name="arrow_forward" />
                   </button>
-                  <button 
-                    onClick={() => {
-                      localStorage.setItem("hasSeenWalkthrough", "true");
-                      setShowWalkthrough(false);
-                    }} 
-                    className="w-full py-2 text-sm font-bold text-gray-400"
-                  >
-                    Skip for now
-                  </button>
+                  <button onClick={() => { localStorage.setItem("hasSeenWalkthrough","true"); setShowWalkthrough(false); }}
+                    className="w-full py-2 text-sm font-bold text-gray-400">Skip for now</button>
                 </div>
               </div>
             </div>
@@ -208,16 +222,8 @@ const Home = () => {
                   <input type="text" placeholder="e.g. 10293485"
                     className="w-full h-16 bg-gray-50 border-2 border-gray-100 rounded-2xl px-6 font-bold focus:border-[#00654b] outline-none transition-all" />
                 </div>
-                <button 
-                  onClick={() => { 
-                    localStorage.setItem("hasSeenWalkthrough", "true");
-                    alert("Setup Complete!"); 
-                    finishSetup(); 
-                  }}
-                  className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold shadow-xl"
-                >
-                  Save and Complete
-                </button>
+                <button onClick={() => { localStorage.setItem("hasSeenWalkthrough","true"); alert("Setup Complete!"); finishSetup(); }}
+                  className="w-full h-16 bg-[#004b37] text-white rounded-2xl font-bold shadow-xl">Save and Complete</button>
               </div>
             </div>
           )}
@@ -228,16 +234,8 @@ const Home = () => {
                 <h3 className="text-lg font-extrabold text-gray-900 mb-2">Quit Setup?</h3>
                 <p className="text-sm text-gray-500 mb-8">Your progress won't be saved. Are you sure?</p>
                 <div className="flex flex-col gap-3">
-                  <button 
-                    onClick={() => { 
-                      localStorage.setItem("hasSeenWalkthrough", "true");
-                      setShowExitConfirm(false); 
-                      setShowWalkthrough(false); 
-                    }} 
-                    className="py-4 bg-red-50 text-red-600 rounded-2xl font-bold"
-                  >
-                    Yes, Quit
-                  </button>
+                  <button onClick={() => { localStorage.setItem("hasSeenWalkthrough","true"); setShowExitConfirm(false); setShowWalkthrough(false); }}
+                    className="py-4 bg-red-50 text-red-600 rounded-2xl font-bold">Yes, Quit</button>
                   <button onClick={() => setShowExitConfirm(false)} className="py-4 bg-gray-100 text-gray-900 rounded-2xl font-bold">Continue Setup</button>
                 </div>
               </div>
@@ -280,7 +278,7 @@ const Home = () => {
       {/* ── PAID CONFIRMATION TOAST ── */}
       {showPaidConfirmation && (
         <div className="fixed inset-0 z-250 flex items-center justify-center pointer-events-none">
-          <div className="bg-[#00654b] text-white px-8 py-5 rounded-[28px] shadow-2xl flex items-center gap-4 animate-slide-up">
+          <div className="bg-[#00654b] text-white px-8 py-5 rounded-3xl shadow-2xl flex items-center gap-4 animate-slide-up">
             <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
               <Icon name="check_circle" size={24} fill={1} className="text-white" />
             </div>
@@ -352,8 +350,12 @@ const Home = () => {
         </div>
       )}
 
-      {/* ── NOTIFICATIONS ── */}
-      {showFullNotifications && <Notification onClose={() => setShowFullNotifications(false)} />}
+      {/* ── NOTIFICATIONS — rendered at top level, highest z-index ── */}
+      {showFullNotifications && (
+        <div style={{ position:"fixed", inset:0, zIndex:500 }}>
+          <Notification onClose={() => setShowFullNotifications(false)} />
+        </div>
+      )}
 
       {/* ── MAIN DASHBOARD ── */}
       <div className={showWalkthrough ? "hidden" : "block"}>
@@ -440,10 +442,10 @@ const Home = () => {
 
           {/* Quick Actions */}
           <section className="grid grid-cols-4 gap-4">
-            <QuickAction icon="add_circle"       label="Load Money"     fill={1} />
-            <QuickAction icon="send_to_mobile"   label="Send Money"     />
-            <QuickAction icon="account_balance"  label="Bank Transfer"  />
-            <QuickAction icon="payments"         label="Remittance"     />
+            <QuickAction icon="add_circle"      label="Load Money"    fill={1} />
+            <QuickAction icon="send_to_mobile"  label="Send Money"           />
+            <QuickAction icon="account_balance" label="Bank Transfer"        />
+            <QuickAction icon="payments"        label="Remittance"           />
           </section>
 
           {/* Upcoming Schedules */}
@@ -460,7 +462,7 @@ const Home = () => {
 
           {/* Utility Grid */}
           <section>
-            <h2 className="text-base font-bold mb-4">Utility & Bill Payments</h2>
+            <h2 className="text-base font-bold mb-4">Utility &amp; Bill Payments</h2>
             {isLoadingUtilities ? (
               <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm grid grid-cols-4 gap-y-8 animate-pulse">
                 {[...Array(8)].map((_,i) => (
@@ -506,14 +508,18 @@ const Home = () => {
             <button className="w-16 h-16 bg-[#00654b] text-white rounded-full flex items-center justify-center border-4 border-white shadow-lg active:scale-95 transition-all">
               <Icon name="qr_code_scanner" size={32} />
             </button>
-            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#00654b] whitespace-nowrap">Scan & Pay</span>
+            <span className="absolute -bottom-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#00654b] whitespace-nowrap">Scan &amp; Pay</span>
           </div>
           <NavBtn onClick={() => navigate("/schedules")} icon="calendar_month" label="Schedules" active={location.pathname === "/schedules"} />
           <NavBtn onClick={() => navigate("/more")}      icon="grid_view"      label="More" />
         </nav>
 
-        {/* ── Chatbot FAB + preview bubble ── */}
-        <ChatbotFAB onClick={() => navigate("/chatbot")} />
+        {/* ── ChatbotFAB — shared component, badge driven by live API data ── */}
+        <ChatbotFAB
+          onClick={() => navigate("/chatbot")}
+          urgentCount={urgentCount}
+          loading={fabLoading}
+        />
       </div>
     </div>
   );
@@ -526,7 +532,6 @@ const IconButton = ({ icon, hasBadge, onClick }) => (
     {hasBadge && <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white animate-pulse" />}
   </button>
 );
-
 const QuickAction = ({ icon, label, fill = 0 }) => (
   <div className="flex flex-col items-center gap-2">
     <button className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center border border-gray-100 shadow-sm active:scale-90 transition-all">
@@ -535,7 +540,6 @@ const QuickAction = ({ icon, label, fill = 0 }) => (
     <span className="text-[11px] font-semibold text-gray-700 text-center leading-tight uppercase tracking-tighter">{label}</span>
   </div>
 );
-
 const ScheduleCard = ({ img, title, subtitle, amount, bg }) => (
   <div className="min-w-60 bg-white rounded-2xl p-4 border border-gray-100 shadow-sm flex items-center gap-4 active:scale-95 transition-transform">
     <div className={`w-14 h-14 ${bg} rounded-xl flex items-center justify-center overflow-hidden p-2 shrink-0`}>
@@ -548,123 +552,17 @@ const ScheduleCard = ({ img, title, subtitle, amount, bg }) => (
     </div>
   </div>
 );
-
 const UtilityItem = ({ icon, label }) => (
   <div className="flex flex-col items-center gap-2 active:opacity-60 transition-opacity">
     <Icon name={icon} size={26} className="text-gray-500" />
     <span className="text-[10px] font-bold text-gray-500 uppercase">{label}</span>
   </div>
 );
-
 const NavBtn = ({ onClick, icon, label, active }) => (
   <button onClick={onClick} className={`flex flex-col items-center justify-center px-4 py-1 transition-all ${active ? "text-[#00654b]" : "text-gray-400"}`}>
     <Icon name={icon} fill={active ? 1 : 0} />
     <span className="text-[10px] font-bold mt-1 uppercase">{label}</span>
   </button>
 );
-
-// ── Chatbot floating bubble + FAB ─────────────────────────────────────────────
-function ChatbotFAB({ onClick }) {
-  const [showBubble, setShowBubble] = React.useState(false);
-  const [dismissed,  setDismissed]  = React.useState(false);
-
-  React.useEffect(() => {
-    const t = setTimeout(() => setShowBubble(true), 1500);
-    return () => clearTimeout(t);
-  }, []);
-
-  return (
-    <>
-      <style>{`
-        @keyframes fabPulse  { 0%,100%{box-shadow:0 6px 24px -4px rgba(0,101,75,0.55)} 50%{box-shadow:0 6px 24px -4px rgba(0,101,75,0.55),0 0 0 10px rgba(0,101,75,0.08)} }
-        @keyframes bubbleIn  { from{opacity:0;transform:translateY(10px) scale(0.9)} to{opacity:1;transform:translateY(0) scale(1)} }
-        @keyframes badgePop  { from{transform:scale(0)} 70%{transform:scale(1.2)} to{transform:scale(1)} }
-        .fab-pulse { animation: fabPulse 2.5s ease-in-out infinite }
-        .bubble-in { animation: bubbleIn 0.4s cubic-bezier(0.34,1.56,0.64,1) forwards }
-        .badge-pop { animation: badgePop 0.4s cubic-bezier(0.34,1.56,0.64,1) 1.6s both }
-      `}</style>
-
-      <div style={{ position:"fixed", bottom:96, right:16, zIndex:50, display:"flex", flexDirection:"column", alignItems:"flex-end", gap:8 }}>
-
-        {/* Preview message bubble */}
-        {showBubble && !dismissed && (
-          <div
-            className="bubble-in"
-            onClick={onClick}
-            style={{
-              position:"relative", background:"#fff",
-              borderRadius:"16px 16px 4px 16px",
-              border:"1px solid #e5e7eb",
-              boxShadow:"0 8px 32px -4px rgba(0,0,0,0.13)",
-              padding:"12px 14px 12px 12px",
-              maxWidth:220, cursor:"pointer",
-              display:"flex", alignItems:"flex-start", gap:10,
-            }}
-          >
-            {/* Dismiss × */}
-            <button
-              onClick={e => { e.stopPropagation(); setDismissed(true); }}
-              style={{
-                position:"absolute", top:-8, right:-8,
-                width:20, height:20, borderRadius:"50%",
-                background:"#6b7280", border:"none", cursor:"pointer",
-                display:"flex", alignItems:"center", justifyContent:"center",
-              }}
-            >
-              <Icon name="close" size={12} className="text-white" />
-            </button>
-
-            {/* Avatar — eSewa logo */}
-            <div style={{
-              width:32, height:32, borderRadius:"50%", flexShrink:0,
-              overflow:"hidden", border:"2px solid #e5e7eb",
-              background:"#fff",
-            }}>
-              <img src={esewaLogo} alt="eSewa" style={{ width:"100%", height:"100%", objectFit:"cover" }} />
-            </div>
-
-            {/* Message */}
-            <div>
-              <p style={{ fontSize:11, fontWeight:800, color:"#141b2b", margin:"0 0 3px" }}>eSewa Assistant</p>
-              <p style={{ fontSize:12, color:"#4b5563", margin:0, lineHeight:1.4 }}>
-                ⚠️ You have 2 overdue bills. Tap to fix now!
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* FAB button */}
-        <button
-          onClick={onClick}
-          className="fab-pulse"
-          style={{
-            width:58, height:58, borderRadius:"50%",
-            background:"#fff",
-            border:"3px solid #00654b",
-            cursor:"pointer",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            position:"relative",
-            overflow:"hidden",
-            padding:0,
-          }}
-        >
-          <span className="badge-pop" style={{
-            position:"absolute", top:-4, right:-4,
-            width:20, height:20, borderRadius:"50%",
-            background:"#ef4444", border:"2px solid #fff",
-            display:"flex", alignItems:"center", justifyContent:"center",
-            fontSize:10, fontWeight:900, color:"#fff",
-            zIndex:1,
-          }}>2</span>
-          <img
-            src={esewaLogo}
-            alt="eSewa"
-            style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%" }}
-          />
-        </button>
-      </div>
-    </>
-  );
-}
 
 export default Home;

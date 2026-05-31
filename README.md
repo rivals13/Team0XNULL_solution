@@ -1,238 +1,70 @@
-# PaySmart
+# PaySmart Frontend
 
-Intelligent Payment Scheduling & Recurring Payment Automation solution developed for the eSewa × WWF Hackathon 2026 by Team 0XNULL.
+This is the React + Vite frontend for the PaySmart demo application.
 
-PaySmart is designed to simplify recurring digital payments through intelligent automation, smart bill alerts, recurring payment scheduling, AI-based payment pattern detection, and low-balance awareness notifications.
+## What it includes
 
-The solution aims to transform digital wallets into proactive financial assistants that reduce repetitive manual effort while improving user convenience and payment reliability.
-
----
-
-# Problem Statement
-
-Recurring payments such as electricity bills, internet subscriptions, rent, and monthly services are predictable expenses. However, users still manually repeat the same payment process every month.
-
-Existing scheduling and automation systems are often difficult to discover or require multiple setup steps, causing users to rely on manual payment habits.
-
-PaySmart addresses these challenges by making payment automation more visible, intelligent, and user-friendly.
-
----
-
-# Core Features
-
-## Smart Bill Alerts
-
-- Detects upcoming bills
-- Sends contextual in-app reminders
-- Pre-fills payment information
-- Allows instant payment or scheduling
-
----
-
-## AI-Based Pattern Detection
-
-The system analyzes:
-
-- Same recipient
-- Similar transaction amount
-- Repeating payment intervals
-
-When recurring behavior is detected, PaySmart generates automation suggestions.
-
----
-
-## Flexible Scheduling
-
-Users can:
-
-- Schedule payments within flexible time windows
-- Handle dynamic payment amounts
-- Modify schedules easily
-
----
-
-## Low Balance Notifications
-
-Before automated execution:
-
-- Wallet balance is verified
-- Users receive preventive low-balance alerts
-- Users can top up or reschedule payments
-
----
-
-# Installation
-
-Instructions to run the project locally.
+- Responsive dashboard with bill summary cards
+- Notification and chatbot flows
+- Floating chatbot FAB with urgent badge
+- Billing, missed payment, and auto-pay interactions
 
 ## Prerequisites
 
-Make sure the following tools are installed:
-
-- Node.js
+- Node.js v18+
 - npm
-- Git
 
-Verify installation:
-
-```bash
-node -v
-npm -v
-git --version
-```
-
----
-
-## Clone Repository
+## Install dependencies
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/YOUR_REPOSITORY.git
-```
-
----
-
-## Navigate to Project Directory
-
-```bash
-cd YOUR_REPOSITORY
-```
-
----
-
-## Install Dependencies
-
-```bash
+cd Team0XNULL_solution
 npm install
 ```
 
----
-
-## Run Development Server
+## Run locally
 
 ```bash
+cd Team0XNULL_solution
 npm run dev
 ```
 
-Application runs at:
+Open the app in your browser at the URL printed by Vite (usually `http://localhost:5173`).
 
-```bash
-http://localhost:5173
+## Environment
+
+The frontend uses `import.meta.env.VITE_API_URL` to connect to the backend.
+
+If your backend is running on a different host or port, create a `.env` file in `Team0XNULL_solution/`:
+
+```env
+VITE_API_URL=http://localhost:3000
 ```
 
----
+If not set, the app defaults to `http://localhost:3000`.
 
-# Usage
+## Available scripts
 
-PaySmart allows users to:
+- `npm run dev` — start the Vite dev server
+- `npm run build` — build the production app
+- `npm run preview` — preview the built app
+- `npm run lint` — run ESLint
 
-- Detect recurring payment behavior
-- Receive intelligent bill reminders
-- Schedule recurring payments
-- Enable payment automation
-- Receive real-time notifications
+## Folder structure
 
-Example workflow:
+- `src/` — application source code
+- `src/pages/` — page components such as `Home.jsx`, `Chatboat.jsx`, and `Schedules.jsx`
+- `src/layout/` — shared layout components
+- `src/assets/` — static assets and images
+- `vite.config.js` — Vite configuration
 
-```bash
-Dashboard → Smart Suggestion → Schedule Payment → Confirm Automation
-```
+## Notes
 
----
+- The frontend relies on the backend API to fetch billing and notification state.
+- There is no real database integration in this prototype.
+- `home` and `chatbot` flows are driven by mock data and demo behavior.
 
-# Deploy
+## Useful files
 
-Build the project for production:
-
-```bash
-npm run build
-```
-
-Preview production build:
-
-```bash
-npm run preview
-```
-
----
-
-# Technology Stack
-
-Technologies used in the project:
-
-- React.js
-- Vite
-- NestJS
-- FastAPI
-- PostgreSQL
-- Figma
-
----
-
-# System Architecture
-
-The system follows a modular architecture consisting of:
-
-- React frontend for dashboard and scheduling interface
-- NestJS backend for APIs and scheduling logic
-- FastAPI microservice for intelligent pattern analysis
-- PostgreSQL database for transactions and recurring schedules
-- WebSocket/FCM for real-time notifications
-
----
-
-# Team 0XNULL
-
-| Name | Responsibility |
-|---|---|
-| Sansar Chhetri | Python (FastAPI) |
-| Nirmal Bista | PostgreSQL Database |
-| Rajkumar Tiruwa | UI/UX Design |
-| Paras Adhikari | Frontend Development |
-| Abishek Kunwar | Backend Development (NestJS) |
-
----
-
-# Contributing
-
-Steps to contribute:
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit changes
-4. Push updates
-5. Create a Pull Request
-
----
-
-# Documentation
-
-Additional project details, architecture, and workflow documentation are included within the project report and source files.
-
----
-
-# Security & Privacy
-
-PaySmart ensures:
-
-- Secure API communication
-- User-approved automation
-- Protected transaction handling
-- Real-time payment notifications
-- Safe recurring payment execution
-
----
-
-# Expected Impact
-
-PaySmart aims to:
-
-- Reduce missed payments
-- Improve user convenience
-- Increase transaction consistency
-- Enhance user engagement within eSewa
-
----
-
-# License
-
-This project is developed for educational and hackathon purposes.# hackathon_show
+- `src/pages/Home.jsx` — dashboard and walkthrough experience
+- `src/pages/Chatboat.jsx` — chatbot UI and messaging experience
+- `src/pages/Chatbotfab.jsx` — floating chatbot action button
