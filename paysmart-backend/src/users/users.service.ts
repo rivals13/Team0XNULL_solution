@@ -1,4 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+
+export interface UserPreferences {
+  autoPayEnabled:   boolean;
+  smsReminder:      boolean;
+  pushNotification: boolean;
+  partialPayment:   boolean;
+}
+
+export const DEFAULT_PREFERENCES: UserPreferences = {
+  autoPayEnabled:   false,
+  smsReminder:      true,
+  pushNotification: true,
+  partialPayment:   false,
+};
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EncryptionService } from '../common/encryption/encryption.service';
@@ -221,6 +235,40 @@ export class UsersService {
       },
       orderBy: { dueDate: 'asc' },
     });
+  }
+
+  // ─── Payment Preferences ──────────────────────────────────────────────────────
+
+  /** Returns the user's preferences merged with defaults (safe for missing fields). */
+  async getPreferences(userId: string): Promise<UserPreferences> {
+    const user = await this.prisma.user.findUnique({
+      where:  { id: userId },
+      select: { preferences: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    const saved = (user.preferences ?? {}) as Partial<UserPreferences>;
+    return { ...DEFAULT_PREFERENCES, ...saved };
+  }
+
+  /** Merges partial update into existing preferences. */
+  async updatePreferences(userId: string, patch: Partial<UserPreferences>): Promise<UserPreferences> {
+    const current = await this.getPreferences(userId);
+    const merged  = { ...current, ...patch };
+    await this.prisma.user.update({
+      where: { id: userId },
+      data:  { preferences: merged as object },
+    });
+    return merged;
+  }
+
+  /** Helper for other services to get a specific preference without throwing. */
+  async getPreference<K extends keyof UserPreferences>(userId: string, key: K): Promise<UserPreferences[K]> {
+    try {
+      const prefs = await this.getPreferences(userId);
+      return prefs[key];
+    } catch {
+      return DEFAULT_PREFERENCES[key];
+    }
   }
 
   private toGrade(score: number): 'A' | 'B' | 'C' | 'D' | 'F' {

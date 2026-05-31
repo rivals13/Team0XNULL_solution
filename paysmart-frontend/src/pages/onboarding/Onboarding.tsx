@@ -33,6 +33,12 @@ const VALIDATABLE: Record<string, string> = {
   'dishhome':            'dishhome',
   'nepal-traffic-police':'nepal-traffic-police',
   'college-fee':         'himalayan-college',
+  'school-fee':          'himalayan-college',
+  'nepal-life':          'nepal-life',
+  'prime-life':          'prime-life',
+  'nlic':                'nlic',
+  'prabhu-life':         'prabhu-life',
+  'other-insurance':     'nepal-life',   // fallback to nepal-life for generic insurance
 };
 
 const CATEGORIES: Array<{
@@ -90,6 +96,12 @@ const CATEGORIES: Array<{
     ],
   },
   {
+    id: 'other' as BillerCategory, label: 'Other / P2P', emoji: '💸', color: 'bg-gray-50 border-gray-200',
+    providers: [
+      { slug: 'other-payment', name: 'Send to Anyone', description: 'Person-to-person, freelance, loan repayment, custom payment' },
+    ],
+  },
+  {
     id: 'insurance', label: 'Insurance', emoji: '🛡️', color: 'bg-green-50 border-green-200',
     providers: [
       { slug: 'nepal-life',      name: 'Nepal Life Insurance',  description: 'Nepal Life Insurance Co. Ltd.' },
@@ -103,6 +115,13 @@ const CATEGORIES: Array<{
 
 const FISCAL_YEARS = ['2080/81', '2081/82', '2082/83'];
 const PROVINCES    = ['Koshi', 'Madhesh', 'Bagmati', 'Gandaki', 'Lumbini', 'Karnali', 'Sudurpashchim'];
+
+export const INTERNET_PACKAGES = [
+  { label: '25 Mbps',  speed: '25',  price: 1500 },
+  { label: '50 Mbps',  speed: '50',  price: 2500 },
+  { label: '100 Mbps', speed: '100', price: 4000 },
+  { label: '200 Mbps', speed: '200', price: 6000 },
+];
 
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -185,6 +204,7 @@ export default function Onboarding() {
       if (!form.phone?.trim())      { setError('Registered phone number is required'); return false; }
     } else if (category === 'tv') {
       if (!form.customerId?.trim()) { setError('Smart Card No. / Subscriber ID is required'); return false; }
+      if (!form.phone?.trim())      { setError('Registered phone number is required'); return false; }
     } else if (category === 'education') {
       if (!form.institutionName?.trim()) { setError('Please enter your school / college name'); return false; }
       if (!form.studentId?.trim())       { setError('Student ID / Registration Number is required'); return false; }
@@ -207,6 +227,10 @@ export default function Onboarding() {
         setError('Premium amount is required'); return false;
       }
       if (!form.premiumFrequency)         { setError('Please select premium frequency'); return false; }
+    } else if (category === 'other') {
+      if (!form.recipientName?.trim())    { setError('Recipient name is required'); return false; }
+      if (!form.recipientAccount?.trim()) { setError('eSewa number or bank account is required'); return false; }
+      if (!form.purpose?.trim())          { setError('Payment purpose is required'); return false; }
     }
     return true;
   };
@@ -266,13 +290,15 @@ export default function Onboarding() {
 
       const billerName = category === 'rent'
         ? `Rent — ${form.propertyAddress}`
-        : provider.name;
+        : category === 'other'
+          ? `${form.recipientName} (P2P)`
+          : provider.name;
 
       const created = await billerAccountsApi.create({
         billerName,
         billerSlug:     provider.slug,
         billerCategory: category,
-        customerId:     customerId || form.landlordName || form.policyNumber || form.chitNumber || form.studentId || '',
+        customerId:     customerId || form.recipientAccount || form.landlordName || form.policyNumber || form.chitNumber || form.studentId || '',
         details:        fullDetails,
       });
 
@@ -357,15 +383,17 @@ export default function Onboarding() {
 // ─────────────────────────────────────────────────────────────────────────────
 function Welcome({ onStart, onLater }: { onStart: () => void; onLater: () => void }) {
   return (
-    <div className="min-h-screen bg-primary flex flex-col items-center justify-between px-8 py-16">
+    <div className="min-h-screen bg-primary opacity-90 flex flex-col items-center justify-between px-8 py-16">
       <div />
       <div className="text-center">
         <div className="w-24 h-24 rounded-3xl bg-white/20 backdrop-blur flex items-center justify-center mx-auto mb-8 shadow-xl">
-          <span className="text-5xl">💚</span>
+          <span className="text-5xl">💡</span>
         </div>
         <h1 className="text-4xl font-bold text-white mb-3">PaySmart</h1>
         <p className="text-white/85 text-xl font-medium leading-relaxed">Smart Bills, Zero Stress</p>
-        <p className="text-white/60 text-sm mt-3">Nepal's intelligent bill payment companion</p>
+        <p className="text-white/60 text-sm mt-3">Would you Like to get notify about the dues?</p>
+                <p className="text-white/60 text-sm mt-3"> Directly in your Esewa App</p>
+
       </div>
       <div className="w-full max-w-md">
         <button onClick={onStart} className="w-full py-4 bg-white text-primary font-bold text-lg rounded-2xl shadow-lg active:scale-95 transition-transform mb-3">
@@ -523,10 +551,43 @@ function DetailsForm({
             <Field label="Registered Phone Number" required>
               <Input value={form.phone ?? ''} onChange={v => set('phone', v)} placeholder="e.g. 9801234567" />
             </Field>
-            <Field label="Internet Package">
-              <Select value={form.package ?? ''} onChange={v => set('package', v)} placeholder="Select your package (optional)"
-                options={['25 Mbps Unlimited','50 Mbps Unlimited','100 Mbps Unlimited','200 Mbps Business','Other']} />
+
+            {/* Package picker with active state */}
+            <Field label="Internet Package" required>
+              <div className="grid grid-cols-2 gap-2">
+                {INTERNET_PACKAGES.map(pkg => {
+                  const active = form.package === pkg.label;
+                  return (
+                  <button
+                    key={pkg.speed}
+                    type="button"
+                    onClick={() => { set('package', pkg.label); set('packagePrice', String(pkg.price)); }}
+                    className={`relative flex flex-col items-center py-3.5 rounded-2xl border-2 transition-all active:scale-95 ${
+                      active
+                        ? 'border-green-500 bg-green-50 shadow-sm'
+                        : 'border-gray-200 bg-gray-50'
+                    }`}
+                  >
+                    {active && (
+                      <span className="absolute top-1.5 right-2 text-green-500 text-xs font-bold">✓</span>
+                    )}
+                    <p className={`text-sm font-bold ${active ? 'text-green-700' : 'text-gray-700'}`}>
+                      {pkg.label}
+                    </p>
+                    <p className={`text-[11px] mt-0.5 ${active ? 'text-green-600' : 'text-gray-400'}`}>
+                      NPR {pkg.price.toLocaleString()}/mo
+                    </p>
+                  </button>
+                  );
+                })}
+              </div>
+              {form.package && (
+                <p className="text-xs text-primary font-medium mt-2 px-1">
+                  ✓ {form.package} — NPR {Number(form.packagePrice).toLocaleString()}/month
+                </p>
+              )}
             </Field>
+
             <Field label="Nickname">
               <Input value={form.nickname ?? ''} onChange={v => set('nickname', v)} placeholder='e.g. "Home WiFi" (optional)' />
             </Field>
@@ -539,8 +600,8 @@ function DetailsForm({
             <Field label="Smart Card No. / Subscriber ID" required>
               <Input value={form.customerId ?? ''} onChange={v => set('customerId', v)} placeholder="e.g. DH-001234 (on your set-top box)" />
             </Field>
-            <Field label="Registered Phone Number">
-              <Input value={form.phone ?? ''} onChange={v => set('phone', v)} placeholder="e.g. 9801234567 (optional)" />
+            <Field label="Registered Phone Number" required>
+              <Input value={form.phone ?? ''} onChange={v => set('phone', v)} placeholder="e.g. 9801234567" />
             </Field>
             <Field label="TV Package">
               <Select value={form.package ?? ''} onChange={v => set('package', v)} placeholder="Select your package (optional)"
@@ -624,6 +685,30 @@ function DetailsForm({
           </>
         )}
 
+        {/* ───── Other / Person-to-Person ───── */}
+        {category === 'other' && (
+          <>
+            <div className="bg-gray-50 border border-gray-200 rounded-2xl px-4 py-3 flex gap-3 items-start mb-1">
+              <span className="text-xl">💸</span>
+              <div>
+                <p className="text-gray-700 text-sm font-bold">Send to Anyone</p>
+                <p className="text-gray-500 text-xs mt-0.5">
+                  Pay a person directly — freelance, P2P, loan repayment, or any custom payment.
+                </p>
+              </div>
+            </div>
+            <Field label="Recipient Name" required>
+              <Input value={form.recipientName ?? ''} onChange={v => set('recipientName', v)} placeholder="e.g. Ram Sharma" />
+            </Field>
+            <Field label="Their eSewa Number / Bank Account" required>
+              <Input value={form.recipientAccount ?? ''} onChange={v => set('recipientAccount', v)} placeholder="eSewa number or bank account" />
+            </Field>
+            <Field label="Purpose / Description" required>
+              <Input value={form.purpose ?? ''} onChange={v => set('purpose', v)} placeholder="e.g. Loan repayment, Freelance, Gift" />
+            </Field>
+          </>
+        )}
+
         {/* ───── Traffic Fine ───── */}
         {category === 'traffic' && (
           <>
@@ -670,6 +755,7 @@ function DetailsForm({
          category === 'traffic'   ? '💾 Save & Track Fine' :
          category === 'rent'      ? '🏠 Save Rent Account' :
          category === 'insurance' ? '🛡️ Save Insurance'   :
+         category === 'other'     ? '💸 Save Payment'      :
          isValidatable            ? '🔍 Verify & Save'     :
                                     '✓ Save Account'}
       </button>
@@ -698,41 +784,44 @@ function Success({
 }) {
   const dueDate   = previewBill ? new Date(previewBill.dueDate) : null;
   const daysLeft  = dueDate ? Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000) : null;
-  const dueLabel  = daysLeft === null ? '' : daysLeft <= 0 ? '🔴 Overdue' : daysLeft === 1 ? '🟠 Due tomorrow' : `🟡 Due in ${daysLeft} days`;
+  const dueLabel  = daysLeft === null ? '' : daysLeft <= 0 ? ' Overdue' : daysLeft === 1 ? 'Due tomorrow' : ` Due in ${daysLeft} days`;
 
   return (
-    <div className="min-h-screen bg-primary flex flex-col items-center justify-center px-6 text-center">
-      <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-5 animate-bounce">
+    <div className="min-h-screen bg-green-900 flex flex-col items-center justify-center px-6 text-center">
+      <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center mb-5">
         <span className="text-4xl">✅</span>
       </div>
       <h2 className="text-white font-bold text-2xl mb-1">Account verified!</h2>
       <p className="text-white/80 text-base font-semibold">{billerName}</p>
 
-      {/* Bill preview from merchant */}
-      {previewBill && (
-        <div className="mt-5 bg-white/15 rounded-2xl px-5 py-4 w-full max-w-xs text-left">
-          <p className="text-white/60 text-[10px] font-bold uppercase tracking-wide mb-2">Current Bill</p>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-white/70 text-sm">Amount Due</span>
-            <span className="text-white font-bold text-lg">NPR {previewBill.amount.toLocaleString()}</span>
+      {/* Bill result card */}
+      {previewBill ? (
+        <div className="mt-4 bg-white rounded-2xl px-5 py-4 w-full max-w-xs text-left shadow-lg">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-green-500 text-lg"></span>
+            <p className="text-green-700 text-sm font-bold">Bill found!</p>
           </div>
-          <div className="flex justify-between items-center mb-1">
-            <span className="text-white/70 text-sm">Due Date</span>
-            <span className="text-white font-semibold text-sm">
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-gray-500 text-sm">Amount Due</span>
+            <span className="text-primary font-bold text-lg">NPR {previewBill.amount.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between items-center mb-1.5">
+            <span className="text-gray-500 text-sm">Due Date</span>
+            <span className="text-gray-800 font-semibold text-sm">
               {new Date(previewBill.dueDate).toLocaleDateString('en-NP', { day: 'numeric', month: 'short', year: 'numeric' })}
             </span>
           </div>
-          {dueLabel && (
-            <p className="text-white/80 text-xs mt-2 font-medium">{dueLabel}</p>
-          )}
-          <p className="text-white/50 text-[10px] mt-2 leading-relaxed">{previewBill.description}</p>
+          {dueLabel && <p className="text-amber-600 text-xs font-medium mt-1">{dueLabel}</p>}
+          <p className="text-gray-400 text-[11px] mt-2">{previewBill.description}</p>
+        </div>
+      ) : (
+        <div className="mt-4 bg-white/15 rounded-2xl px-5 py-3 w-full max-w-xs text-center">
+          <p className="text-white/80 text-sm"> No pending bill right now</p>
+          <p className="text-white/50 text-xs mt-1">You'll get notified when a bill is due</p>
         </div>
       )}
 
-      <p className="text-white/60 text-xs mt-4">
-        You'll receive smart reminders before each bill is due.{'\n'}
-        Bill notification will appear in ~20 seconds.
-      </p>
+     
 
       {/* ── 3 action buttons ── */}
       <div className="w-full max-w-xs mt-6 flex flex-col gap-3">

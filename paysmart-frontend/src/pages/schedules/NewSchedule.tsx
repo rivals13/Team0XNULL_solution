@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { schedulesApi, merchantListApi } from '../../api';
+import { schedulesApi, merchantListApi, mockMerchantApi } from '../../api';
+import { usePreferences } from '../../context/PreferencesContext';
 import Spinner from '../../components/Spinner';
 import {
   BsLightningCharge, BsWifi, BsTv, BsHouseDoor, BsShield, BsBank2, BsChevronDown, BsChevronUp,
@@ -11,6 +12,14 @@ import { IoSchoolOutline } from 'react-icons/io5';
 import { RiCarLine } from 'react-icons/ri';
 import { MdOutlineSend } from 'react-icons/md';
 
+// Inline — avoids cross-file import issues with Onboarding
+const INTERNET_PACKAGES = [
+  { label: '25 Mbps',  speed: '25',  price: 1500 },
+  { label: '50 Mbps',  speed: '50',  price: 2500 },
+  { label: '100 Mbps', speed: '100', price: 4000 },
+  { label: '200 Mbps', speed: '200', price: 6000 },
+];
+
 const NEPAL_BANKS = [
   'Siddhartha Bank Ltd', 'Everest Bank Ltd', 'NIC Asia Bank',
   'Nepal Investment Mega Bank', 'Nabil Bank', 'Standard Chartered Bank',
@@ -19,44 +28,53 @@ const NEPAL_BANKS = [
   'Machhapuchchhre Bank',
 ];
 
-// ── Bill categories for manual schedule creation ──────────────────────────────
+// ── Bill categories — 2-col colored grid (same style as onboarding) ──────────
 const BILL_CATEGORIES = [
-  { id: 'ELECTRICITY', label: 'Electricity', icon: <BsLightningCharge className="w-5 h-5" />,
+  { id: 'ELECTRICITY', label: 'Electricity', emoji: '⚡', color: 'bg-amber-50 border-amber-200',
+    icon: <BsLightningCharge className="w-8 h-8 text-amber-500" />,
     defaultName: 'NEA Electricity Bill',
-    idLabel: 'SC Number', idPlaceholder: 'e.g. SC-1234567',
-    accountLabel: 'NEA Payment ID / eSewa No.', accountPlaceholder: 'NEA eSewa-linked number' },
-  { id: 'WATER', label: 'Water', icon: <FaWater className="w-5 h-5" />,
+    idLabel: 'SC Number', idPlaceholder: 'e.g. SC-001',
+    accountLabel: 'NEA Payment ID', accountPlaceholder: 'NEA eSewa-linked number', showAccount: false },
+  { id: 'WATER', label: 'Khanepani', emoji: '💧', color: 'bg-sky-50 border-sky-200',
+    icon: <FaWater className="w-8 h-8 text-sky-500" />,
     defaultName: 'KUKL Water Bill',
-    idLabel: 'Client Code', idPlaceholder: 'e.g. KUKL-12345',
-    accountLabel: 'KUKL eSewa No. / Bank A/C', accountPlaceholder: 'KUKL payment number' },
-  { id: 'INTERNET', label: 'Internet', icon: <BsWifi className="w-5 h-5" />,
+    idLabel: 'Client Code', idPlaceholder: 'e.g. KUKL-1234',
+    accountLabel: 'KUKL Payment ID', accountPlaceholder: 'KUKL payment number', showAccount: false },
+  { id: 'INTERNET', label: 'Internet', emoji: '🌐', color: 'bg-blue-50 border-blue-200',
+    icon: <BsWifi className="w-8 h-8 text-blue-500" />,
     defaultName: 'Internet Bill',
-    idLabel: 'Customer ID / Username', idPlaceholder: 'e.g. WL-12345',
-    accountLabel: 'ISP eSewa No. / Account', accountPlaceholder: 'Provider payment number' },
-  { id: 'TV', label: 'TV / Cable', icon: <BsTv className="w-5 h-5" />,
+    idLabel: 'Customer ID', idPlaceholder: 'e.g. WL-12345',
+    accountLabel: 'ISP Account', accountPlaceholder: 'Provider payment number', showAccount: false },
+  { id: 'TV', label: 'TV / Cable', emoji: '📺', color: 'bg-purple-50 border-purple-200',
+    icon: <BsTv className="w-8 h-8 text-purple-500" />,
     defaultName: 'TV / Cable Bill',
-    idLabel: 'Smart Card No.', idPlaceholder: 'e.g. 1234567890',
-    accountLabel: 'Provider eSewa No.', accountPlaceholder: 'DishHome / TataPlay number' },
-  { id: 'EDUCATION', label: 'Education', icon: <IoSchoolOutline className="w-5 h-5" />,
+    idLabel: 'Smart Card No.', idPlaceholder: 'e.g. DH-001234',
+    accountLabel: 'Provider eSewa No.', accountPlaceholder: 'DishHome / TataPlay', showAccount: false },
+  { id: 'EDUCATION', label: 'Education Fee', emoji: '🎓', color: 'bg-violet-50 border-violet-200',
+    icon: <IoSchoolOutline className="w-8 h-8 text-violet-500" />,
     defaultName: 'School / College Fee',
-    idLabel: 'Student ID / Roll No.', idPlaceholder: 'e.g. STU-2026-001',
-    accountLabel: 'Institution eSewa / Bank A/C', accountPlaceholder: 'School / college payment no.' },
-  { id: 'TRAFFIC', label: 'Traffic Fine', icon: <RiCarLine className="w-5 h-5" />,
+    idLabel: 'Student ID', idPlaceholder: 'e.g. 2024001',
+    accountLabel: 'Institution Account', accountPlaceholder: 'School payment no.', showAccount: false },
+  { id: 'TRAFFIC', label: 'Traffic Fine', emoji: '🚔', color: 'bg-red-50 border-red-200',
+    icon: <RiCarLine className="w-8 h-8 text-red-500" />,
     defaultName: 'Traffic Fine Payment',
-    idLabel: 'Chit Number', idPlaceholder: 'e.g. TC-2082-001',
-    accountLabel: 'Traffic Police eSewa No.', accountPlaceholder: 'Nepal Traffic Police number' },
-  { id: 'RENT', label: 'Rent', icon: <BsHouseDoor className="w-5 h-5" />,
+    idLabel: 'Chit Number', idPlaceholder: 'e.g. KTM-2026-100',
+    accountLabel: 'Traffic Police eSewa', accountPlaceholder: 'Nepal Traffic Police', showAccount: false },
+  { id: 'RENT', label: 'House Rent', emoji: '🏠', color: 'bg-orange-50 border-orange-200',
+    icon: <BsHouseDoor className="w-8 h-8 text-orange-500" />,
     defaultName: 'Monthly House Rent',
-    idLabel: 'Landlord Name', idPlaceholder: 'e.g. Ram Prasad Sharma',
-    accountLabel: "Landlord's eSewa / Bank A/C", accountPlaceholder: 'Landlord payment number' },
-  { id: 'INSURANCE', label: 'Insurance', icon: <BsShield className="w-5 h-5" />,
+    idLabel: 'Landlord Name', idPlaceholder: 'e.g. Ram Sharma',
+    accountLabel: "Landlord's eSewa / Bank A/C", accountPlaceholder: 'Landlord payment number', showAccount: true },
+  { id: 'INSURANCE', label: 'Insurance', emoji: '🛡️', color: 'bg-green-50 border-green-200',
+    icon: <BsShield className="w-8 h-8 text-green-500" />,
     defaultName: 'Insurance Premium',
-    idLabel: 'Policy Number', idPlaceholder: 'e.g. NLI-2026-001234',
-    accountLabel: 'Insurance Co. eSewa No.', accountPlaceholder: 'Nepal Life / Prime Life no.' },
-  { id: 'CUSTOM', label: 'Other', icon: <MdOutlineSend className="w-5 h-5" />,
+    idLabel: 'Policy Number', idPlaceholder: 'e.g. NLI-001',
+    accountLabel: 'Insurance Co. eSewa No.', accountPlaceholder: 'Nepal Life / Prime Life', showAccount: false },
+  { id: 'CUSTOM', label: 'Other / P2P', emoji: '💸', color: 'bg-gray-50 border-gray-200',
+    icon: <MdOutlineSend className="w-8 h-8 text-gray-500" />,
     defaultName: '',
-    idLabel: 'Pay To', idPlaceholder: 'Merchant name or phone number',
-    accountLabel: 'eSewa / Bank Account No.', accountPlaceholder: 'Recipient payment number' },
+    idLabel: 'Pay To (name)', idPlaceholder: 'Recipient name',
+    accountLabel: 'eSewa / Bank Account', accountPlaceholder: 'Recipient payment number', showAccount: true },
 ];
 
 const FREQUENCIES = ['ONCE', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY'];
@@ -64,6 +82,7 @@ const FREQUENCIES = ['ONCE', 'DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'YEARLY']
 export default function NewSchedule() {
   const navigate   = useNavigate();
   const [params]   = useSearchParams();
+  const { prefs }  = usePreferences();
 
   // ── Smart Bills pre-fill detection ───────────────────────────────────────
   const fromSmartBill    = params.get('fromSmartBill') === 'true';
@@ -88,7 +107,7 @@ export default function NewSchedule() {
       ? (params.get('billerName') ?? '')
       : paymentAccount,
     rentAddress:    '',   // property address — only used when category = RENT
-    maxOccurrences: '',   // '' = unlimited, '1'–'10' = limit
+    maxOccurrences: '',   // empty — user must enter 1–10 before submitting
     frequency:      'MONTHLY',
     nextRunAt: (() => {
       const due = params.get('dueDate');
@@ -105,12 +124,22 @@ export default function NewSchedule() {
     description: params.get('description') ?? '',
   });
 
-  const [prefs, setPrefs] = useState({
-    autoPayEnabled:   false,
-    smsReminder:      true,
-    pushNotification: true,
-    partialPayment:   false,
+  // Local override of preferences for this schedule (starts from global prefs)
+  const [localPrefs, setLocalPrefs] = useState({
+    autoPayEnabled:   prefs.autoPayEnabled,
+    smsReminder:      prefs.smsReminder,
+    pushNotification: prefs.pushNotification,
+    partialPayment:   prefs.partialPayment,
   });
+  // Sync when global prefs load (first render might be before fetch completes)
+  useEffect(() => {
+    setLocalPrefs({
+      autoPayEnabled:   prefs.autoPayEnabled,
+      smsReminder:      prefs.smsReminder,
+      pushNotification: prefs.pushNotification,
+      partialPayment:   prefs.partialPayment,
+    });
+  }, [prefs.autoPayEnabled, prefs.smsReminder, prefs.pushNotification, prefs.partialPayment]);
 
   // Merchant payment details (fetched when fromSmartBill=true)
   const [merchantDetails, setMerchantDetails] = useState<{
@@ -141,10 +170,15 @@ export default function NewSchedule() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => setForm(p => ({ ...p, [k]: e.target.value }));
 
-  const togglePref = (k: keyof typeof prefs) =>
-    setPrefs(p => ({ ...p, [k]: !p[k] }));
+  const togglePref = (k: keyof typeof localPrefs) =>
+    setLocalPrefs(p => ({ ...p, [k]: !p[k] }));
 
-  // Pick a category (manual mode) — auto-fills name
+  // Category-specific extra fields (matches Onboarding DetailsForm fields)
+  const [catDetails, setCatDetails] = useState<Record<string, string>>({});
+  const setCD = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setCatDetails(p => ({ ...p, [k]: e.target.value }));
+
+  // Pick a category (manual mode) — auto-fills name, resets category fields
   const pickCategory = (catId: string) => {
     setSelectedCat(catId);
     const cat = BILL_CATEGORIES.find(c => c.id === catId)!;
@@ -154,6 +188,7 @@ export default function NewSchedule() {
       accountId:   '',
       recipientId: '',
     }));
+    setCatDetails({});
     setError('');
   };
 
@@ -186,12 +221,16 @@ export default function NewSchedule() {
     }
 
     // Payment always goes through eSewa by default
+    // recipientId = merchant name or SC/customer ID (routing handled by backend)
+    const billRef = catDetails.accountId || catDetails.customerId || catDetails.clientCode
+                 || catDetails.chitNumber || catDetails.studentId || catDetails.recipientAccount
+                 || form.accountId;
     let finalRecipientId = fromSmartBill
       ? (form.recipientId || merchantName)
-      : (form.recipientId || form.accountId || '');
+      : (form.recipientId || billRef || form.accountId || '');
 
     if (!finalRecipientId) {
-      setError('Please enter a payment account number or recipient.');
+      setError('Please enter the bill account ID (SC number, client code, etc.).');
       return;
     }
 
@@ -199,7 +238,12 @@ export default function NewSchedule() {
 
     setLoading(true);
     try {
-      const maxOcc = form.maxOccurrences ? Number(form.maxOccurrences) : 0;
+      // maxOccurrences: required for repeating schedules
+      if (form.frequency !== 'ONCE' && !form.maxOccurrences) {
+        setError('Please enter how many times (1–10).');
+        return;
+      }
+      const maxOcc = form.frequency === 'ONCE' ? 1 : Math.min(10, Math.max(1, Number(form.maxOccurrences)));
       const newSchedule = await schedulesApi.create({
         name:           form.name,
         amount:         Number(form.amount),
@@ -210,16 +254,31 @@ export default function NewSchedule() {
         maxOccurrences: maxOcc,
         description: [
           form.description,
-          fromSmartBill && merchantSlug  ? `[merchant:${merchantSlug}]`         : '',
-          fromSmartBill && customerIdParam ? `[customerId:${customerIdParam}]`  : '',
-          selectedCat === 'RENT' && form.rentAddress ? `Property: ${form.rentAddress}` : '',
-          prefs.autoPayEnabled   ? '[AUTO-PAY]' : '',
-          prefs.smsReminder      ? '[SMS]'       : '',
-          prefs.pushNotification ? '[PUSH]'      : '',
+          fromSmartBill && merchantSlug    ? `[merchant:${merchantSlug}]`    : '',
+          fromSmartBill && customerIdParam ? `[customerId:${customerIdParam}]` : '',
+          catDetails.accountId    ? `[id:${catDetails.accountId}]`    : '',
+          catDetails.officeCode   ? `[office:${catDetails.officeCode}]`  : '',
+          catDetails.phone        ? `[phone:${catDetails.phone}]`       : '',
+          catDetails.package      ? `[pkg:${catDetails.package}]`       : '',
+          catDetails.chitNumber   ? `[chit:${catDetails.chitNumber}]`   : '',
+          catDetails.propertyAddress ? `Property:${catDetails.propertyAddress}` : '',
+          localPrefs.autoPayEnabled   ? '[AUTO-PAY]' : '',
+          localPrefs.smsReminder      ? '[SMS]'       : '',
+          localPrefs.pushNotification ? '[PUSH]'      : '',
         ].filter(Boolean).join(' '),
       });
-      // Notify Dashboard + Schedules page to add this immediately (no reload)
       window.dispatchEvent(new CustomEvent('scheduleCreated', { detail: newSchedule }));
+
+      // Notify merchant of SCHEDULED action (if from SmartBills with a known merchant)
+      if (fromSmartBill && merchantSlug && customerIdParam) {
+        mockMerchantApi.customerAction(merchantSlug, {
+          customerId:    customerIdParam,
+          action:        'SCHEDULED',
+          amount:        Number(form.amount),
+          scheduledDate: form.nextRunAt,
+        });
+      }
+
       setSuccess(true);
       setTimeout(() => navigate('/schedules'), 2500);
     } catch (err: unknown) {
@@ -239,10 +298,10 @@ export default function NewSchedule() {
           <span className="text-4xl">✅</span>
         </div>
         <h2 className="text-white font-bold text-2xl mb-2">Schedule Created!</h2>
-        {prefs.autoPayEnabled && (
+        {localPrefs.autoPayEnabled && (
           <p className="text-white/90 text-sm bg-white/15 rounded-xl px-4 py-2 mb-2">⚡ Auto-pay is ON</p>
         )}
-        {prefs.smsReminder && (
+        {localPrefs.smsReminder && (
           <p className="text-white/80 text-sm">📱 SMS reminder will be sent before each payment</p>
         )}
         <p className="text-white/60 text-xs mt-3">Redirecting to schedules…</p>
@@ -283,119 +342,24 @@ export default function NewSchedule() {
           <div className="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-2xl">{error}</div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════════════
-            SMART BILLS MODE — merchant + customer ID pre-filled and locked
-            ═══════════════════════════════════════════════════════════════════ */}
-        {fromSmartBill && (
-          <div className="bg-[#E8F5EE] border border-primary/20 rounded-2xl p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-base">📌</span>
-              <p className="text-xs font-bold text-primary uppercase tracking-wide">Pre-filled from Smart Bills</p>
-            </div>
-
-            {/* Merchant name — locked */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Merchant / Biller</label>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
-                <span className="flex-1 text-gray-800 font-semibold text-sm">{merchantName}</span>
-                <span className="text-gray-300 text-xs">🔒</span>
-              </div>
-            </div>
-
-            {/* Customer / Account ID — locked */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">
-                Your Account / Customer ID
-              </label>
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
-                <span className="flex-1 font-mono text-sm text-gray-800 font-semibold">{customerIdParam}</span>
-                <span className="text-gray-300 text-xs">🔒</span>
-              </div>
-              <p className="text-gray-400 text-[10px] mt-1 px-1">
-                Automatically filled from your Smart Bills account
-              </p>
-            </div>
-
-            {/* Merchant payment method — show ONLY ONE: eSewa preferred over bank */}
-            {merchantDetails && (merchantDetails.esewaId || merchantDetails.banks?.length > 0) && (
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">
-                  Merchant Payment Details
-                </label>
-                {merchantDetails.esewaId ? (
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
-                    <img
-                      src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
-                      style={{ width: 20, height: 20, objectFit: 'contain', borderRadius: 4 }}
-                      alt="eSewa"
-                    />
-                    <div className="flex-1">
-                      <p className="text-[10px] text-gray-400">eSewa ID</p>
-                      <p className="font-mono font-semibold text-sm text-gray-800">{merchantDetails.esewaId}</p>
-                    </div>
-                    <span className="text-gray-300 text-xs">🔒</span>
-                  </div>
-                ) : merchantDetails.banks?.[0] ? (
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
-                    <span className="text-lg">🏦</span>
-                    <div className="flex-1">
-                      <p className="text-[10px] text-gray-400">{merchantDetails.banks[0].bankName}</p>
-                      <p className="font-mono font-semibold text-sm text-gray-800">{merchantDetails.banks[0].accountNumber}</p>
-                      <p className="text-[10px] text-gray-400">{merchantDetails.banks[0].accountHolder}</p>
-                    </div>
-                    <span className="text-gray-300 text-xs">🔒</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white border border-gray-200">
-                    <span className="text-gray-400 text-sm">Direct Payment</span>
-                  </div>
-                )}
-                <p className="text-gray-400 text-[10px] mt-1 px-1">
-                  Payment goes directly to merchant — auto-filled for security
-                </p>
-              </div>
-            )}
-
-            {/* Loading merchant details */}
-            {fromSmartBill && merchantSlug && merchantDetails === null && (
-              <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-gray-100">
-                <span className="text-gray-400 text-xs animate-pulse">Fetching merchant details…</span>
-              </div>
+        {/* Smart Bills — small info chip, all fields pre-filled silently */}
+        {fromSmartBill && merchantName && (
+          <div className="flex items-center gap-2 bg-[#E8F5EE] rounded-xl px-3 py-2">
+            <span className="text-primary text-sm">📌</span>
+            <p className="text-primary text-xs font-semibold flex-1">{merchantName}</p>
+            {customerIdParam && (
+              <span className="text-primary/70 text-xs font-mono bg-white/50 px-2 py-0.5 rounded-lg">
+                ID: {customerIdParam}
+              </span>
             )}
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════════════
-            LEGACY MERCHANT BILL MODE — company name + payment account locked
-            ═══════════════════════════════════════════════════════════════════ */}
-        {fromMerchant && !fromSmartBill && (
-          <div className="bg-gray-50 rounded-2xl p-4 flex flex-col gap-3">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Paying To</p>
-
-            {/* Company / merchant name — locked */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">Company / Merchant Name</label>
-              <div className="flex items-center gap-2 px-4 py-3.5 rounded-xl bg-white border border-gray-200">
-                <span className="flex-1 text-gray-800 font-semibold text-sm">{merchantName}</span>
-                <span className="text-gray-300 text-sm">🔒</span>
-              </div>
-            </div>
-
-            {/* Payment account number — locked */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">
-                Payment Account (eSewa / Bank No.)
-              </label>
-              <div className="flex items-center gap-2 px-4 py-3.5 rounded-xl bg-white border border-gray-200">
-                <span className={`flex-1 font-mono text-sm ${paymentAccount ? 'text-gray-800 font-semibold' : 'text-gray-400 italic'}`}>
-                  {paymentAccount || 'Not provided by merchant'}
-                </span>
-                <span className="text-gray-300 text-sm">🔒</span>
-              </div>
-              <p className="text-gray-400 text-[10px] mt-1 px-1">
-                Set by the merchant — cannot be changed for security
-              </p>
-            </div>
+        {/* Legacy merchant mode — show merchant name only, no payment destination */}
+        {fromMerchant && !fromSmartBill && merchantName && (
+          <div className="bg-gray-50 rounded-2xl px-4 py-3 flex items-center gap-3">
+            <span className="text-gray-400 text-sm">Scheduling for</span>
+            <span className="flex-1 font-semibold text-gray-800 text-sm">{merchantName}</span>
           </div>
         )}
 
@@ -407,92 +371,132 @@ export default function NewSchedule() {
             <label className="text-sm font-bold text-gray-700 mb-3 block">
               What do you want to schedule?
             </label>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               {BILL_CATEGORIES.map(cat => (
                 <button
                   key={cat.id}
                   type="button"
                   onClick={() => pickCategory(cat.id)}
-                  className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 transition-all active:scale-95 ${
-                    selectedCat === cat.id
-                      ? 'border-primary bg-[#E8F5EE] text-primary'
-                      : 'border-gray-100 bg-gray-50 text-gray-500'
+                  className={`flex flex-col items-center gap-3 py-6 rounded-3xl border-2 transition-all active:scale-95 ${
+                    selectedCat === cat.id ? 'border-primary bg-[#E8F5EE]' : cat.color
                   }`}
                 >
-                  <span className="flex items-center justify-center">{cat.icon}</span>
-                  <span className={`text-[10px] font-semibold text-center leading-tight ${
-                    selectedCat === cat.id ? 'text-primary' : 'text-gray-600'
-                  }`}>
-                    {cat.label}
-                  </span>
+                  <span className="text-4xl">{cat.emoji}</span>
+                  <span className={`text-sm font-bold text-center leading-tight ${
+                    selectedCat === cat.id ? 'text-primary' : 'text-gray-800'
+                  }`}>{cat.label}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
 
-        {/* Manual: category-specific fields (shown after category pick) */}
+        {/* Manual: full category-specific fields (same as Onboarding) */}
         {!fromMerchant && selectedCat && catMeta && (
           <div className="bg-gray-50 rounded-2xl p-4 flex flex-col gap-3 border border-gray-100">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-              <span className="text-gray-400">{catMeta.icon}</span> {catMeta.label} Details
+              <span>{catMeta.icon}</span> {catMeta.label} Details
             </p>
 
-            {/* Bill account ID (SC no. / client code / student ID etc.) */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">{catMeta.idLabel}</label>
-              <input
-                type="text"
-                value={form.accountId}
-                onChange={e => setForm(p => ({ ...p, accountId: e.target.value }))}
-                placeholder={catMeta.idPlaceholder}
-                className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary"
-              />
-            </div>
+            {/* ── ELECTRICITY ── */}
+            {selectedCat === 'ELECTRICITY' && <>
+              <F label="Customer ID / SC No." required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. SC-001, 123456" /></F>
+              <F label="Office Code" required><I value={catDetails.officeCode ?? ''} onChange={setCD('officeCode')} ph="e.g. 01" /></F>
+            </>}
 
-            {/* Payment account number (eSewa / bank) */}
-            <div>
-              <label className="text-xs font-medium text-gray-500 mb-1 block">
-                {catMeta.accountLabel}
-                <span className="text-gray-400 font-normal ml-1">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={form.recipientId}
-                onChange={e => setForm(p => ({ ...p, recipientId: e.target.value }))}
-                placeholder={catMeta.accountPlaceholder}
-                className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary"
-              />
-              <p className="text-gray-400 text-[10px] mt-1 px-1">
-                If blank, your {catMeta.idLabel.toLowerCase()} is used as the payment ID
-              </p>
-            </div>
+            {/* ── WATER ── */}
+            {selectedCat === 'WATER' && <>
+              <F label="Client Code" required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. KUKL-1234" /></F>
+              <F label="Area Code" required><I value={catDetails.areaCode ?? ''} onChange={setCD('areaCode')} ph="e.g. 02" /></F>
+            </>}
 
-            {/* Extra field — Property Address (Rent only) */}
-            {selectedCat === 'RENT' && (
-              <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">
-                  Property Address
-                </label>
-                <input
-                  type="text"
-                  value={form.rentAddress}
-                  onChange={e => setForm(p => ({ ...p, rentAddress: e.target.value }))}
-                  placeholder="e.g. Baluwatar-4, Kathmandu"
-                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary"
-                />
+            {/* ── INTERNET ── */}
+            {selectedCat === 'INTERNET' && <>
+              <F label="Customer ID / Username" required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. WL-12345, VNT-001" /></F>
+              <F label="Registered Phone Number" required><I value={catDetails.phone ?? ''} onChange={setCD('phone')} ph="e.g. 9801234567" /></F>
+              <F label="Internet Package">
+                <div className="grid grid-cols-2 gap-2">
+                  {INTERNET_PACKAGES.map(pkg => {
+                    const active = catDetails.package === pkg.label;
+                    return (
+                    <button key={pkg.speed} type="button"
+                      onClick={() => { setCatDetails(p => ({ ...p, package: pkg.label, packagePrice: String(pkg.price) })); setForm(p => ({ ...p, amount: String(pkg.price) })); }}
+                      className={`relative flex flex-col items-center py-2.5 rounded-xl border-2 transition-all active:scale-95 ${active ? 'border-green-500 bg-green-50 shadow-sm' : 'border-gray-200 bg-white'}`}>
+                      {active && <span className="absolute top-1 right-1.5 text-green-500 text-[10px] font-bold">✓</span>}
+                      <p className={`text-xs font-bold ${active ? 'text-green-700' : 'text-gray-700'}`}>{pkg.label}</p>
+                      <p className={`text-[10px] ${active ? 'text-green-600' : 'text-gray-400'}`}>NPR {pkg.price.toLocaleString()}/mo</p>
+                    </button>
+                    );
+                  })}
+                </div>
+              </F>
+            </>}
+
+            {/* ── TV / CABLE ── */}
+            {selectedCat === 'TV' && <>
+              <F label="Smart Card No. / Subscriber ID" required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. DH-001234 (on set-top box)" /></F>
+              <F label="Registered Phone Number"><I value={catDetails.phone ?? ''} onChange={setCD('phone')} ph="e.g. 9801234567 (optional)" /></F>
+              <F label="TV Package">
+                <S value={catDetails.package ?? ''} onChange={setCD('package')} ph="Select package (optional)"
+                  opts={['Family Pack', 'Sports Pack', 'Premium Pack', 'Basic Pack', 'Other']} />
+              </F>
+            </>}
+
+            {/* ── EDUCATION ── */}
+            {selectedCat === 'EDUCATION' && <>
+              <F label="School / College Name" required><I value={catDetails.institutionName ?? ''} onChange={setCD('institutionName')} ph="e.g. Himalayan College" /></F>
+              <F label="Student ID / Registration No." required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. 2024001" /></F>
+              <F label="Program / Class" required><I value={catDetails.classOrProgram ?? ''} onChange={setCD('classOrProgram')} ph="e.g. BSc IT, BBA, Grade 10" /></F>
+            </>}
+
+            {/* ── TRAFFIC ── */}
+            {selectedCat === 'TRAFFIC' && <>
+              <F label="Chit Number / Slip Number" required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. KTM-2026-100" /></F>
+              <F label="Fiscal Year" required>
+                <S value={catDetails.fiscalYear ?? ''} onChange={setCD('fiscalYear')} ph="Select fiscal year"
+                  opts={['2080/81', '2081/82', '2082/83']} />
+              </F>
+              <F label="Province" required>
+                <S value={catDetails.province ?? ''} onChange={setCD('province')} ph="Select province"
+                  opts={['Koshi', 'Madhesh', 'Bagmati', 'Gandaki', 'Lumbini', 'Karnali', 'Sudurpashchim']} />
+              </F>
+            </>}
+
+            {/* ── RENT ── */}
+            {selectedCat === 'RENT' && <>
+              <div className="bg-orange-50 border border-orange-100 rounded-xl px-3 py-2 flex gap-2 items-start">
+                <span className="text-orange-500">🏠</span>
+                <p className="text-orange-700 text-xs">Reminder 3 days before rent due each month.</p>
               </div>
-            )}
+              <F label="Landlord Name" required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. Ram Prasad Sharma" /></F>
+              <F label="Property Address" required><I value={catDetails.propertyAddress ?? ''} onChange={setCD('propertyAddress')} ph="e.g. Baluwatar-4, Kathmandu" /></F>
+              <F label="Landlord's eSewa / Bank No." required>
+                <I value={form.recipientId} onChange={e => setForm(p => ({ ...p, recipientId: e.target.value }))} ph="Landlord payment number" />
+              </F>
+            </>}
 
-            {/* Rent reminder info */}
-            {selectedCat === 'RENT' && (
-              <div className="bg-orange-50 border border-orange-100 rounded-xl px-3 py-2.5 flex gap-2 items-start">
-                <span className="text-orange-500 text-base">🏠</span>
-                <p className="text-orange-700 text-xs leading-relaxed">
-                  <strong>Rent reminder included</strong> — SMS + push notification 3 days before due date so you always pay on time.
-                </p>
+            {/* ── INSURANCE ── */}
+            {selectedCat === 'INSURANCE' && <>
+              <F label="Policy Number" required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. NLI-2026-001234" /></F>
+              <F label="Plan Name" required><I value={catDetails.planName ?? ''} onChange={setCD('planName')} ph="e.g. Endowment Plan, Term Life" /></F>
+              <F label="Premium Frequency" required>
+                <S value={catDetails.premiumFrequency ?? ''} onChange={setCD('premiumFrequency')} ph="Select frequency"
+                  opts={['Monthly', 'Quarterly', 'Half-yearly', 'Annually']} />
+              </F>
+              <F label="Phone Number"><I value={catDetails.phone ?? ''} onChange={setCD('phone')} ph="e.g. 9801234567 (optional)" /></F>
+            </>}
+
+            {/* ── OTHER / P2P ── */}
+            {selectedCat === 'CUSTOM' && <>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 flex gap-2 items-start">
+                <span>💸</span><p className="text-gray-600 text-xs">Send to anyone — P2P, freelance, loan repayment.</p>
               </div>
-            )}
+              <F label="Recipient Name" required><I value={catDetails.accountId ?? ''} onChange={setCD('accountId')} ph="e.g. Ram Sharma" /></F>
+              <F label="Their eSewa / Bank Account" required>
+                <I value={form.recipientId} onChange={e => setForm(p => ({ ...p, recipientId: e.target.value }))} ph="eSewa number or bank account" />
+              </F>
+              <F label="Purpose" required><I value={catDetails.purpose ?? ''} onChange={setCD('purpose')} ph="e.g. Loan repayment, Freelance" /></F>
+            </>}
           </div>
         )}
 
@@ -616,33 +620,38 @@ export default function NewSchedule() {
               />
             </div>
 
-            {/* Max occurrences — only for repeating frequencies */}
+            {/* Max occurrences — required for repeating frequencies, min 1 max 10 */}
             {form.frequency !== 'ONCE' && (
               <div>
                 <label className="text-sm font-medium text-gray-600 mb-1 block">
-                  How many times? <span className="text-gray-400 text-xs font-normal">(max 10)</span>
+                  How many times? <span className="text-red-500 text-xs">*</span>
+                  <span className="text-gray-400 text-xs font-normal ml-1">(1–10)</span>
                 </label>
                 <input
-                  type="number" value={form.maxOccurrences}
+                  type="number"
+                  value={form.maxOccurrences}
                   onChange={e => {
                     const v = e.target.value;
-                    if (v !== '' && (Number(v) < 1 || Number(v) > 10)) return;
+                    if (v === '') { setForm(p => ({ ...p, maxOccurrences: '' })); return; }
+                    const n = Number(v);
+                    if (isNaN(n) || n > 10) return;   // block >10
                     setForm(p => ({ ...p, maxOccurrences: v }));
                   }}
-                  min="1" max="10" placeholder="Unlimited (leave blank)"
-                  className="w-full px-4 py-4 rounded-2xl border border-gray-200 bg-gray-50 text-base focus:outline-none focus:border-primary"
+                  min="1" max="10"
+                  placeholder="Enter 1–10"
+                  className={`w-full px-4 py-4 rounded-2xl border bg-gray-50 text-base focus:outline-none focus:border-primary ${
+                    !form.maxOccurrences ? 'border-red-200' : 'border-gray-200'
+                  }`}
                 />
-                {form.maxOccurrences && (
-                  <p className="text-gray-400 text-[11px] mt-1 px-1">
-                    {{
-                      DAILY: `Max ${form.maxOccurrences} days`,
-                      WEEKLY: `Max ${form.maxOccurrences} weeks`,
-                      BIWEEKLY: `Max ${form.maxOccurrences} bi-weekly payments`,
-                      MONTHLY: `Max ${form.maxOccurrences} months`,
-                      YEARLY: `Max ${form.maxOccurrences} years`,
-                    }[form.frequency] ?? `${form.maxOccurrences} payments`}
-                  </p>
-                )}
+                <p className="text-gray-400 text-[11px] mt-1 px-1">
+                  {{
+                    DAILY:    `Runs for ${form.maxOccurrences} day${form.maxOccurrences !== '1' ? 's' : ''}`,
+                    WEEKLY:   `Runs for ${form.maxOccurrences} week${form.maxOccurrences !== '1' ? 's' : ''}`,
+                    BIWEEKLY: `${form.maxOccurrences} bi-weekly payments`,
+                    MONTHLY:  `Runs for ${form.maxOccurrences} month${form.maxOccurrences !== '1' ? 's' : ''}`,
+                    YEARLY:   `Runs for ${form.maxOccurrences} year${form.maxOccurrences !== '1' ? 's' : ''}`,
+                  }[form.frequency] ?? `${form.maxOccurrences} payments`}
+                </p>
               </div>
             )}
 
@@ -674,11 +683,11 @@ export default function NewSchedule() {
                       type="button"
                       onClick={() => togglePref(item.key)}
                       className={`w-11 h-6 rounded-full relative flex-shrink-0 mt-0.5 transition-colors ${
-                        prefs[item.key] ? 'bg-primary' : 'bg-gray-200'
+                        localPrefs[item.key] ? 'bg-primary' : 'bg-gray-200'
                       }`}
                     >
                       <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                        prefs[item.key] ? 'translate-x-5' : 'translate-x-0.5'
+                        localPrefs[item.key] ? 'translate-x-5' : 'translate-x-0.5'
                       }`} />
                     </button>
                     <div>
@@ -691,7 +700,7 @@ export default function NewSchedule() {
             </div>
 
             {/* Warning when auto-pay is on */}
-            {prefs.autoPayEnabled && (
+            {localPrefs.autoPayEnabled && (
               <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex gap-2.5 items-start">
                 <span className="text-amber-500 text-lg">⚠</span>
                 <p className="text-amber-700 text-xs leading-relaxed">
@@ -721,5 +730,32 @@ export default function NewSchedule() {
         )}
       </form>
     </div>
+  );
+}
+
+// ─── Tiny reusable form helpers (keeps JSX above clean) ───────────────────────
+function F({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-xs font-semibold text-gray-600 mb-1.5 flex items-center gap-1">
+        {label}{required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+}
+function I({ value, onChange, ph }: { value: string; onChange: React.ChangeEventHandler<HTMLInputElement>; ph?: string }) {
+  return (
+    <input value={value} onChange={onChange} placeholder={ph}
+      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
+  );
+}
+function S({ value, onChange, ph, opts }: { value: string; onChange: React.ChangeEventHandler<HTMLSelectElement>; ph: string; opts: string[] }) {
+  return (
+    <select value={value} onChange={onChange}
+      className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary">
+      <option value="">{ph}</option>
+      {opts.map(o => <option key={o} value={o}>{o}</option>)}
+    </select>
   );
 }

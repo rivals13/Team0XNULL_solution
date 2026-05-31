@@ -70,7 +70,7 @@ export class OtpService {
       throw new BadRequestException(`Invalid OTP. ${MAX_ATTEMPTS - record.attempts} attempts remaining.`);
     }
 
-    // ✅ Correct — remove from store so it can't be reused
+    // Correct — remove from store so it can't be reused
     this.store.delete(phone);
     this.logger.log(`[OTP] Verified successfully for ${phone}`);
     return true;

@@ -75,7 +75,7 @@ import { MockMerchantModule } from './mock-merchant/mock-merchant.module';
           removeOnComplete: 100,
           removeOnFail: 50,
           attempts: 3,
-          backoff: { type: 'exponential', delay: 5000 },
+          backoff: { type: 'exponential', delay: 20000 },
         },
       }),
     }),

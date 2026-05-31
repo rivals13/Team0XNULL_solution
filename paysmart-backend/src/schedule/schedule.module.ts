@@ -6,6 +6,8 @@ import { ScheduleController } from './schedule.controller';
 import { BalanceService } from './balance.service';
 import { SmsModule } from '../sms/sms.module';
 import { BillInquiryModule } from '../bill-inquiry/bill-inquiry.module';
+import { UsersModule } from '../users/users.module';
+import { BillerAccountsModule } from '../biller-accounts/biller-accounts.module';
 import { PAYMENT_QUEUE, SCHEDULE_QUEUE } from '../queue/queue.constants';
 
 @Module({
@@ -15,6 +17,8 @@ import { PAYMENT_QUEUE, SCHEDULE_QUEUE } from '../queue/queue.constants';
     HttpModule.register({ timeout: 8000 }),
     SmsModule,
     BillInquiryModule,
+    UsersModule,
+    BillerAccountsModule,
   ],
   controllers: [ScheduleController],
   providers: [ScheduleService, BalanceService],

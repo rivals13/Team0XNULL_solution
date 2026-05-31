@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Body, Param, Req } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Patch, Body, Param, Req } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Request } from 'express';
 import { BillerAccountsService } from './biller-accounts.service';
@@ -36,6 +36,16 @@ export class BillerAccountsController {
   @ApiOperation({ summary: 'Manually fetch the latest bill for a saved biller account' })
   checkBill(@Param('id') id: string, @Req() req: Request & { user: { id: string } }) {
     return this.billInquiry.checkBillForAccount(id, req.user.id);
+  }
+
+  @Patch(':id/package')
+  @ApiOperation({ summary: 'Update internet package for a biller account' })
+  updatePackage(
+    @CurrentUser() user: any,
+    @Param('id') id: string,
+    @Body() body: { package: string; packagePrice: number },
+  ) {
+    return this.service.updatePackage(user.id, id, body.package, body.packagePrice);
   }
 
   @Delete(':id')

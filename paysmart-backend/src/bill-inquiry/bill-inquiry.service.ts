@@ -86,25 +86,24 @@ export class BillInquiryService {
       return null;
     }
 
-    // 5. Validate response — handle both { found: false } and legacy { error: 'CUSTOMER_NOT_FOUND' }
+    // 5. Validate response — handle all response shapes
     if (!rawResponse) {
       this.logger.warn(`[BillInquiry] Empty response from "${merchantSlug}"`);
       return null;
     }
-    // New mock format: { found: false, message: '...' }
-    if (rawResponse.found === false) {
-      this.logger.debug(`[BillInquiry] Customer "${customerId}" not found at "${merchantSlug}": ${rawResponse.message}`);
+    // Customer not registered with merchant
+    if (rawResponse.found === false || rawResponse.error === 'CUSTOMER_NOT_FOUND') {
+      this.logger.debug(`[BillInquiry] Customer "${customerId}" not found at "${merchantSlug}"`);
       return null;
     }
-    // Legacy format: { error: 'CUSTOMER_NOT_FOUND', message: '...' }
-    if (rawResponse.error === 'CUSTOMER_NOT_FOUND') {
-      this.logger.debug(`[BillInquiry] Customer "${customerId}" not found at "${merchantSlug}": ${rawResponse.message}`);
-      return null;
+    // Customer found but no pending bill (e.g. Vianet/CGNet with hasDue:false)
+    if (rawResponse.found === true && rawResponse.hasDue === false) {
+      this.logger.debug(`[BillInquiry] Customer "${customerId}" at "${merchantSlug}" has no pending bill`);
+      // Return a sentinel so callers can distinguish NO_DUE from CUSTOMER_NOT_FOUND
+      return { __noDue: true } as any;
     }
     if (typeof rawResponse.amount !== 'number' || !rawResponse.dueDate) {
-      this.logger.warn(
-        `[BillInquiry] Invalid response from "${merchantSlug}": missing amount or dueDate`,
-      );
+      this.logger.warn(`[BillInquiry] Invalid response from "${merchantSlug}": missing amount or dueDate`);
       return null;
     }
 
@@ -177,31 +176,11 @@ export class BillInquiryService {
               `[BillInquiry] New bill ${bill.id} saved for user ${userId} from merchant ${merchantSlug}`,
             );
           } else {
-            // Bill already exists — still emit bill.due WS event so popup always appears
+            // Bill already exists — just attach its id, no notification
+            // (popup only fires from explicit actions: save/pay/schedule → merchant trigger)
             result.billId = existing.id;
             this.logger.debug(
-              `[BillInquiry] Bill already exists (id: ${existing.id}) for user ${userId} — sending reminder notification`,
-            );
-
-            const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000);
-            const dueLine = daysUntil <= 0 ? 'due today' : `due in ${daysUntil} day${daysUntil > 1 ? 's' : ''}`;
-
-            this.notifications.sendNotification(
-              userId,
-              'BILL_DUE',
-              `Bill reminder: ${merchant.name}`,
-              `NPR ${result.amount.toFixed(2)} ${dueLine}. ${result.description}`.trim(),
-              {
-                billId:       existing.id,
-                merchantId:   merchant.id,
-                merchantSlug: merchant.slug,
-                merchantName: merchant.name,
-                amount:       result.amount,
-                dueDate:      dueDate.toISOString(),
-                description:  result.description,
-              },
-            ).catch(notifyErr =>
-              this.logger.warn(`[BillInquiry] Reminder notification failed for user ${userId}: ${notifyErr?.message}`),
+              `[BillInquiry] Bill already exists (id: ${existing.id}) for user ${userId} — skipping notification`,
             );
           }
         } catch (dbErr) {
@@ -249,12 +228,104 @@ export class BillInquiryService {
       userId,
     );
 
-    if (!result) {
-      // inquireBill returns null for CUSTOMER_NOT_FOUND, HTTP errors, or invalid responses.
-      // In all cases, report back as customer not found so the UI can show a clear error.
-      return { noBill: true, reason: 'CUSTOMER_NOT_FOUND' };
+    if (!result)                      return { noBill: true, reason: 'CUSTOMER_NOT_FOUND' };
+    if ((result as any).__noDue)      return { noBill: true, reason: 'NO_DUE' };
+    return result;
+  }
+
+  /**
+   * Called by the mock merchant after receiving a customer action.
+   * Looks up the biller account by slug + customerId, then triggers
+   * the full bill inquiry → save → WebSocket notification flow.
+   *
+   * This simulates the MERCHANT pushing a bill back to PaySmart.
+   */
+  /**
+   * Called by the mock merchant after receiving a customer action.
+   * Calls the mock merchant directly (bypasses billInquiryUrl requirement so
+   * auto-created merchants without a seeded URL still work).
+   * Saves bill + sends WebSocket BILL_DUE notification to the user.
+   */
+  async triggerBillForCustomer(merchantSlug: string, customerId: string): Promise<void> {
+    // Find biller accounts for this merchant + customer
+    const accounts = await this.prisma.billerAccount.findMany({
+      where: { accountNumber: customerId, merchant: { slug: merchantSlug } },
+      include: { merchant: { select: { id: true, name: true, slug: true } } },
+    });
+
+    if (accounts.length === 0) {
+      this.logger.debug(`[BillTrigger] No biller account found for ${merchantSlug}/${customerId}`);
+      return;
     }
 
-    return result;
+    // Call mock merchant directly — no billInquiryUrl needed
+    const MOCK_BASE = process.env.APP_URL ?? 'http://localhost:3000';
+    let billData: { found: boolean; hasDue?: boolean; amount?: number; dueDate?: string; description?: string } | null = null;
+
+    try {
+      const { data: raw } = await require('axios').post(
+        `${MOCK_BASE}/api/v1/mock-merchant/${merchantSlug}/check-customer`,
+        { customerId },
+        { timeout: 5000 },
+      );
+      const unwrapped = (raw && 'success' in raw && 'data' in raw) ? raw.data : raw;
+      if (unwrapped?.found && unwrapped?.hasDue !== false && typeof unwrapped?.amount === 'number') {
+        billData = unwrapped;
+      }
+    } catch (err: any) {
+      this.logger.warn(`[BillTrigger] Mock merchant call failed: ${err?.message}`);
+      return;
+    }
+
+    if (!billData) {
+      this.logger.debug(`[BillTrigger] No due bill for ${merchantSlug}/${customerId}`);
+      return;
+    }
+
+    const amount      = billData.amount!;
+    const dueDate     = new Date(billData.dueDate ?? Date.now() + 15 * 24 * 60 * 60 * 1000);
+    const description = billData.description ?? `${merchantSlug} bill due`;
+
+    // For each matching account, save bill + send WS notification
+    await Promise.allSettled(
+      accounts.map(async acc => {
+        try {
+          // Dedup: only create bill if not already exists
+          const existing = await this.prisma.bill.findFirst({
+            where: { userId: acc.userId, merchantId: acc.merchant.id, amount, dueDate, status: { not: 'CANCELLED' as any } },
+          });
+
+          const billId = existing
+            ? existing.id
+            : (await this.prisma.bill.create({
+                data: { userId: acc.userId, merchantId: acc.merchant.id, amount, dueDate, status: 'PENDING' as any, description },
+              })).id;
+
+          const daysUntil = Math.ceil((dueDate.getTime() - Date.now()) / 86_400_000);
+          const dueLine   = daysUntil <= 0 ? 'due today' : `due in ${daysUntil} day${daysUntil !== 1 ? 's' : ''}`;
+
+          await this.notifications.sendNotification(
+            acc.userId,
+            'BILL_DUE',
+            `Bill from ${acc.merchant.name}`,
+            `NPR ${amount.toFixed(0)} ${dueLine}. ${description}`.trim(),
+            {
+              billId,
+              merchantId:   acc.merchant.id,
+              merchantSlug: acc.merchant.slug,
+              merchantName: acc.merchant.name,
+              customerId,
+              amount,
+              dueDate:     dueDate.toISOString(),
+              description,
+            },
+          );
+
+          this.logger.log(`[BillTrigger] ✅ Bill + notification sent for user ${acc.userId} | ${merchantSlug}/${customerId} | NPR ${amount}`);
+        } catch (err: any) {
+          this.logger.warn(`[BillTrigger] Failed for ${acc.id}: ${err?.message}`);
+        }
+      }),
+    );
   }
 }

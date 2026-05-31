@@ -15,8 +15,11 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { IoChevronBack } from 'react-icons/io5';
-import { billerAccountsApi, paymentsApi } from '../../api';
-import type { BillerAccount, FetchedBill, PaymentProvider } from '../../types';
+import { billerAccountsApi, paymentsApi, schedulesApi, mockMerchantApi } from '../../api';
+import MpinModal from '../../components/MpinModal';
+import type { BillerAccount, FetchedBill, PaymentProvider, Schedule } from '../../types';
+import { INTERNET_PACKAGES } from '../onboarding/Onboarding';
+import { usePreferences } from '../../context/PreferencesContext';
 import Spinner from '../../components/Spinner';
 import BottomNav from '../../components/BottomNav';
 import { useToast } from '../../hooks/useToast';
@@ -38,6 +41,10 @@ const CAT_META: Record<string, { icon: React.ReactNode; label: string; bg: strin
   TRAFFIC:     { icon: <RiCarLine className="w-5 h-5 text-red-600" />,           label: 'Traffic Fine',     bg: 'bg-red-50',     accent: 'text-red-700'    },
   RENT:        { icon: <BsHouseDoor className="w-5 h-5 text-orange-600" />,      label: 'House Rent',       bg: 'bg-orange-50',  accent: 'text-orange-700' },
   INSURANCE:   { icon: <BsShield className="w-5 h-5 text-green-600" />,          label: 'Insurance',        bg: 'bg-green-50',   accent: 'text-green-700'  },
+  OTHER:       { icon: <BsWallet2 className="w-5 h-5 text-gray-500" />,           label: 'Other',            bg: 'bg-gray-50',    accent: 'text-gray-700'   },
+  TELECOM:     { icon: <BsWifi className="w-5 h-5 text-blue-600" />,              label: 'Telecom',          bg: 'bg-blue-50',    accent: 'text-blue-700'   },
+  GOVERNMENT:  { icon: <RiCarLine className="w-5 h-5 text-red-600" />,            label: 'Government',       bg: 'bg-red-50',     accent: 'text-red-700'    },
+  UTILITY:     { icon: <BsLightningCharge className="w-5 h-5 text-amber-600" />,  label: 'Utility',          bg: 'bg-amber-50',   accent: 'text-amber-700'  },
 };
 
 const ESEWA_LOGO_24 = (
@@ -153,6 +160,8 @@ export default function SmartBills() {
   const navigate            = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toasts, show }    = useToast();
+  const { prefs }           = usePreferences();
+  const [partialAmount,     setPartialAmount] = useState<string>('');
   const openPayParam        = searchParams.get('openPay'); // accountId to auto-open payment
   const autoPayTriggered    = useRef(false);
 
@@ -162,13 +171,16 @@ export default function SmartBills() {
   const [loading,        setLoading]        = useState(true);
   const [activeTab,      setActiveTab]      = useState<string>('ALL');
   const [balance,        setBalance]        = useState<number | null>(null);
-  // Customer validation — 'valid' | 'not_found' | 'no_url' per account
-  const [validationMap, setValidationMap]   = useState<Record<string, 'valid' | 'not_found' | 'no_url'>>({});
+  // valid=customer found+bill fetched | no_due=customer found, no pending bill | not_found=invalid ID | no_url=no inquiry URL
+  const [validationMap, setValidationMap]   = useState<Record<string, 'valid' | 'no_due' | 'not_found' | 'no_url'>>({});
+  // Schedules — loaded once, used for package-change → schedule-amount update
+  const [schedules,      setSchedules]      = useState<Schedule[]>([]);
 
   // Payment modal state
   const [payModal, setPayModal]                 = useState<{ acc: BillerAccount; bill: FetchedBill } | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>('ESEWA');
   const [paying, setPaying]                     = useState(false);
+  const [showMpin, setShowMpin]                 = useState(false);
   // Bank payment form (shown when user selects Bank in the modal)
   const [bankPayForm, setBankPayForm] = useState({ bankName: '', account: '', holder: '' });
   const setBP = (k: keyof typeof bankPayForm) =>
@@ -189,23 +201,23 @@ export default function SmartBills() {
     const results = await Promise.allSettled(
       accs.map(acc => billerAccountsApi.checkBill(acc.id) as Promise<Record<string, unknown>>),
     );
-    const newBills:      Record<string, FetchedBill>                    = {};
-    const newValidation: Record<string, 'valid' | 'not_found' | 'no_url'> = {};
+    const newBills:      Record<string, FetchedBill>                              = {};
+    const newValidation: Record<string, 'valid' | 'no_due' | 'not_found' | 'no_url'> = {};
 
     results.forEach((result, i) => {
       const acc = accs[i];
       if (result.status === 'fulfilled') {
         const raw = result.value;
         if (raw && !('noBill' in raw) && typeof raw.amount === 'number') {
-          // Bill found → auto-populate the bill card
           newBills[acc.id]      = mapBackendBill(raw, acc);
           newValidation[acc.id] = 'valid';
         } else if (raw && 'noBill' in raw) {
           const reason = (raw as { noBill: true; reason: string }).reason;
-          newValidation[acc.id] = reason === 'CUSTOMER_NOT_FOUND' ? 'not_found' : 'no_url';
+          if (reason === 'NO_DUE')               newValidation[acc.id] = 'no_due';
+          else if (reason === 'CUSTOMER_NOT_FOUND') newValidation[acc.id] = 'not_found';
+          else                                   newValidation[acc.id] = 'no_url';
         }
       }
-      // If rejected (network error) — leave validation unset, no badge shown
     });
 
     setFetchedBills(prev => ({ ...prev, ...newBills }));
@@ -215,13 +227,14 @@ export default function SmartBills() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [accs, bal] = await Promise.all([
+      const [accs, bal, scheds] = await Promise.all([
         billerAccountsApi.list(),
         paymentsApi.getBalance(),
+        schedulesApi.list(),
       ]);
       setAccounts(accs);
       setBalance(bal.balance);
-      // Validate all accounts in the background — don't block the UI
+      setSchedules(scheds.filter((s: Schedule) => s.status === 'ACTIVE'));
       autoValidate(accs).catch(() => {});
     } catch { /* silent */ }
     finally { setLoading(false); }
@@ -244,39 +257,61 @@ export default function SmartBills() {
   const fetchBill = async (acc: BillerAccount) => {
     setFetching(p => ({ ...p, [acc.id]: true }));
     try {
-      let bill: FetchedBill;
-      try {
-        const raw = await billerAccountsApi.checkBill(acc.id) as Record<string, unknown>;
-        if (raw && !('noBill' in raw)) {
-          bill = mapBackendBill(raw, acc);
-        } else {
-          // Merchant has no billInquiryUrl — fall back to mock
-          bill = await mockFetchBill(acc);
+      const raw = await billerAccountsApi.checkBill(acc.id) as Record<string, unknown>;
+
+      if (raw && !('noBill' in raw) && typeof (raw as any).amount === 'number') {
+        // Real bill from merchant
+        const bill = mapBackendBill(raw as Record<string, unknown>, acc);
+        setFetchedBills(p => ({ ...p, [acc.id]: bill }));
+        setValidationMap(p => ({ ...p, [acc.id]: 'valid' }));
+      } else if (raw && 'noBill' in raw) {
+        const reason = (raw as { noBill: true; reason: string }).reason;
+        if (reason === 'NO_DUE' || reason === 'CUSTOMER_NOT_FOUND') {
+          // Merchant confirmed: no pending bill
+          setValidationMap(p => ({ ...p, [acc.id]: reason === 'NO_DUE' ? 'no_due' : 'not_found' }));
+          if (reason === 'NO_DUE') {
+            show('✅ No pending bill for ' + acc.billerName + ' — you are all clear!', 'info');
+          }
         }
-      } catch {
-        // API call failed — fall back to mock so app still works
-        bill = await mockFetchBill(acc);
       }
-      setFetchedBills(p => ({ ...p, [acc.id]: bill }));
-    } catch { show('Failed to fetch bill. Please try again.', 'error'); }
+    } catch {
+      show('Could not reach ' + acc.billerName + '. Please try again.', 'error');
+    }
     finally { setFetching(p => ({ ...p, [acc.id]: false })); }
   };
 
-  // Fetch bill then immediately open the payment modal — used by "Pay Now" on unfetched cards
+  // Fetch bill then open payment modal — used by "Pay Now" on unfetched cards
   const fetchAndPay = async (acc: BillerAccount) => {
+    // Guard: no due for this account — tell user instead of fetching
+    if (validationMap[acc.id] === 'no_due') {
+      show('✅ No pending bill for ' + acc.billerName + '. Nothing to pay right now!', 'info');
+      return;
+    }
+
     setFetching(p => ({ ...p, [acc.id]: true }));
     try {
       let bill: FetchedBill;
       try {
         const raw = await billerAccountsApi.checkBill(acc.id) as Record<string, unknown>;
-        if (raw && !('noBill' in raw)) {
-          bill = mapBackendBill(raw, acc);
+        if (raw && !('noBill' in raw) && typeof (raw as any).amount === 'number') {
+          bill = mapBackendBill(raw as Record<string, unknown>, acc);
         } else {
-          bill = await mockFetchBill(acc);
+          // No due from merchant
+          setValidationMap(p => ({ ...p, [acc.id]: 'no_due' }));
+          show('✅ No pending bill — ' + acc.billerName + ' has nothing due right now.', 'info');
+          return;
         }
       } catch {
         bill = await mockFetchBill(acc);
       }
+
+      // Guard: if bill amount is 0 or undefined, don't open payment
+      if (!bill || bill.currentAmount <= 0) {
+        setValidationMap(p => ({ ...p, [acc.id]: 'no_due' }));
+        show('✅ No pending bill for ' + acc.billerName + '.', 'info');
+        return;
+      }
+
       setFetchedBills(p => ({ ...p, [acc.id]: bill }));
       openPay(acc, bill);
     } catch { show('Failed to fetch bill. Please try again.', 'error'); }
@@ -287,26 +322,63 @@ export default function SmartBills() {
     setPayModal({ acc, bill });
     setSelectedProvider('ESEWA');
     setBankPayForm({ bankName: '', account: '', holder: '' });
+    setPartialAmount('');
   };
 
   const confirmPay = async () => {
     if (!payModal) return;
     const { acc, bill } = payModal;
-    const total = bill.currentAmount + bill.fine + bill.serviceCharge - bill.rebate;
+    const fullTotal = bill.currentAmount + bill.fine + bill.serviceCharge - bill.rebate;
+    // Partial payment: use custom amount if entered and partial payment preference is ON
+    const total = (prefs.partialPayment && partialAmount && Number(partialAmount) > 0)
+      ? Number(partialAmount)
+      : fullTotal;
     setPaying(true);
     try {
+      // For bank payment, recipientId is the bank account number
+      const recipientId = selectedProvider === 'WALLET'
+        ? `${bankPayForm.bankName} – ${bankPayForm.account} (${bankPayForm.holder})`
+        : acc.billerName;
+
       await paymentsApi.execute({
         amount:      total,
         provider:    selectedProvider,
-        recipientId: acc.billerName,
-        description: `${acc.billerName} – ${bill.billPeriod}`,
+        recipientId,
+        description: `${acc.billerName} – ${bill.billPeriod}${selectedProvider === 'WALLET' ? ` via ${bankPayForm.bankName}` : ''}`,
       });
-      // Mark as paid locally
+      // Mark current bill as paid
       setFetchedBills(p => ({ ...p, [acc.id]: { ...bill, status: 'PAID' } }));
       setPayModal(null);
-      show(`✅ NPR ${total.toLocaleString()} paid to ${acc.billerName} via ${SMART_BILL_PROVIDERS.find(p => p.id === selectedProvider)?.label ?? selectedProvider}!`, 'success');
-      // Refresh balance
+      show(`✅ NPR ${total.toLocaleString()} paid — ${acc.billerName}!`, 'success');
       paymentsApi.getBalance().then(r => setBalance(r.balance)).catch(() => {});
+
+      // Notify merchant of PAY_NOW and act on response
+      const SKIP_NOTIFY = new Set(['house-rent', 'other-payment', 'kukl-water']);
+      if (!SKIP_NOTIFY.has(acc.billerSlug)) {
+        // Ask merchant if there's a NEW bill due after payment
+        const resp = await mockMerchantApi.customerAction(acc.billerSlug, {
+          customerId: acc.customerId,
+          action:     'PAY_NOW',
+          amount:     total,
+        });
+
+        if (resp?.hasDue === false) {
+          // Merchant confirms: no pending bill after payment
+          // Clear bill state → shows "No pending bill" card
+          setTimeout(() => {
+            setFetchedBills(p => ({ ...p, [acc.id]: undefined as any }));
+            setValidationMap(p => ({ ...p, [acc.id]: 'no_due' }));
+          }, 1500);
+        }
+        // If hasDue: true → merchant will push bill via WebSocket in ~5s → popup appears
+        // No fake bill generation needed — let the WebSocket event handle it
+
+      } else {
+        // Manual merchants (rent/other/KUKL) — no merchant API, just clear after PAID
+        setTimeout(() => {
+          setFetchedBills(p => ({ ...p, [acc.id]: undefined as any }));
+        }, 2000);
+      }
     } catch {
       show('Payment failed. Please try again.', 'error');
     } finally {
@@ -364,7 +436,10 @@ export default function SmartBills() {
                 <button onClick={() => !paying && setPayModal(null)} className="text-white/70 text-2xl">✕</button>
               </div>
               <p className="text-white/70 text-sm">{payModal.acc.billerName}</p>
-              <p className="text-white font-bold text-3xl mt-1">
+              <p className="text-white/60 text-xs mt-0.5">
+                Customer ID: <span className="font-mono font-semibold">{payModal.acc.customerId}</span> 🔒
+              </p>
+              <p className="text-white font-bold text-3xl mt-2">
                 NPR {(payModal.bill.currentAmount + payModal.bill.fine + payModal.bill.serviceCharge - payModal.bill.rebate).toLocaleString('en-NP')}
               </p>
             </div>
@@ -455,24 +530,55 @@ export default function SmartBills() {
                 <p className="text-xs text-gray-400 mb-4">eSewa balance: NPR {balance.toLocaleString('en-NP')}</p>
               )}
 
-              {/* Non-editable payment recipient */}
-              <div className="bg-gray-50 rounded-2xl px-4 py-3 mb-5 flex items-center gap-3">
-                <span className="text-gray-400 text-sm">Paying to</span>
-                <span className="flex-1 text-right text-gray-700 font-semibold text-sm">{payModal.acc.billerName}</span>
-                <span className="text-gray-300 text-xs">🔒</span>
-              </div>
-              <p className="text-gray-400 text-xs text-center mb-4">Account: {payModal.acc.customerId} (verified, cannot be changed)</p>
+              {/* Payment destination handled by backend — not shown */}
+
+              {/* Partial payment input — shown when preference is ON */}
+              {prefs.partialPayment && (
+                <div className="mb-4">
+                  <p className="text-xs font-semibold text-gray-600 mb-1.5">💳 Partial Payment (optional)</p>
+                  <input
+                    type="number"
+                    value={partialAmount}
+                    onChange={e => setPartialAmount(e.target.value)}
+                    placeholder={`Full amount: NPR ${(payModal.bill.currentAmount + payModal.bill.fine + payModal.bill.serviceCharge - payModal.bill.rebate).toLocaleString()}`}
+                    min="1"
+                    max={payModal.bill.currentAmount + payModal.bill.fine + payModal.bill.serviceCharge - payModal.bill.rebate}
+                    className="w-full px-4 py-3 rounded-2xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-primary"
+                  />
+                  <p className="text-[10px] text-gray-400 mt-1">Leave blank to pay full amount</p>
+                </div>
+              )}
 
               <button
-                onClick={confirmPay}
+                onClick={() => {
+                  // Validate bank fields before showing MPIN
+                  if (selectedProvider === 'WALLET') {
+                    if (!bankPayForm.bankName) { show('Please select a bank', 'error'); return; }
+                    if (!bankPayForm.account.trim()) { show('Please enter account number', 'error'); return; }
+                    if (!bankPayForm.holder.trim()) { show('Please enter account holder name', 'error'); return; }
+                  }
+                  setShowMpin(true);
+                }}
                 disabled={paying}
                 className="w-full py-4 bg-primary text-white font-bold rounded-2xl flex items-center justify-center gap-2 disabled:opacity-60"
               >
-                {paying ? <><Spinner size={20} /> Processing...</> : `Pay NPR ${(payModal.bill.currentAmount + payModal.bill.fine + payModal.bill.serviceCharge - payModal.bill.rebate).toLocaleString()}`}
+                {paying ? <><Spinner size={20} /> Processing...</> : (() => {
+                  const full = payModal.bill.currentAmount + payModal.bill.fine + payModal.bill.serviceCharge - payModal.bill.rebate;
+                  const amt = (prefs.partialPayment && partialAmount && Number(partialAmount) > 0) ? Number(partialAmount) : full;
+                  return `Pay NPR ${amt.toLocaleString()}`;
+                })()}
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── MPIN confirmation — shown before every payment ── */}
+      {showMpin && (
+        <MpinModal
+          onConfirm={() => { setShowMpin(false); confirmPay(); }}
+          onCancel={() => setShowMpin(false)}
+        />
       )}
 
       {/* ── Header ── */}
@@ -518,7 +624,7 @@ export default function SmartBills() {
             <div className="bg-white rounded-2xl p-3.5 text-center border border-gray-100 shadow-card">
               <p className="text-[10px] text-gray-400 font-medium">DUE</p>
               <p className="text-base font-bold text-primary mt-0.5">
-                {totalDue > 0 ? `₹${(totalDue / 1000).toFixed(1)}k` : '—'}
+                {totalDue > 0 ? `NPR ${(totalDue / 1000).toFixed(1)}k` : '—'}
               </p>
               <p className="text-[9px] text-gray-400">total</p>
             </div>
@@ -651,6 +757,7 @@ export default function SmartBills() {
         {/* ── Bill Cards ── */}
         {!loading && visible.length > 0 && (
           <div className="px-3.5 pt-3.5 flex flex-col gap-3">
+            <p className="text-sm font-bold text-gray-700 mb-0.5">My Accounts</p>
             {visible.map(acc => (
               <BillCard
                 key={acc.id}
@@ -658,10 +765,27 @@ export default function SmartBills() {
                 bill={fetchedBills[acc.id]}
                 fetching={!!fetching[acc.id]}
                 validation={validationMap[acc.id]}
+                linkedSchedule={schedules.find(s => s.billerAccountId === acc.id || (s.name.toLowerCase().includes(acc.billerName.toLowerCase()) && s.status === 'ACTIVE'))}
                 onFetch={() => fetchBill(acc)}
                 onFetchAndPay={() => fetchAndPay(acc)}
                 onPay={(bill) => openPay(acc, bill)}
                 onSchedule={(bill) => schedulePayment(acc, bill)}
+                onPackageChange={(newPkg, newPrice) => {
+                  // Optimistically update accounts list
+                  setAccounts(p => p.map(a => a.id === acc.id
+                    ? { ...a, details: { ...(a.details as Record<string,unknown>), package: newPkg, packagePrice: newPrice } }
+                    : a
+                  ));
+                  // Persist to backend
+                  billerAccountsApi.updatePackage(acc.id, newPkg, newPrice).catch(() => {});
+                  // Update schedule if linked
+                  const linked = schedules.find(s => s.billerAccountId === acc.id || s.name.toLowerCase().includes(acc.billerName.toLowerCase()));
+                  if (linked) {
+                    schedulesApi.update(linked.id, { amount: newPrice })
+                      .then(updated => setSchedules(p => p.map(s => s.id === updated.id ? updated : s)))
+                      .catch(() => show('Schedule update failed', 'error'));
+                  }
+                }}
                 onDelete={() => {
                   billerAccountsApi.remove(acc.id)
                     .then(() => setAccounts(p => p.filter(a => a.id !== acc.id)))
@@ -672,22 +796,6 @@ export default function SmartBills() {
           </div>
         )}
 
-        {/* ── Info banner ── */}
-        <div className="mx-3.5 mt-4 mb-4 bg-white border border-gray-100 rounded-2xl p-4 shadow-card">
-          <p className="text-xs font-bold text-gray-600 mb-2">ℹ️ How Smart Bills works</p>
-          <div className="flex flex-col gap-1.5">
-            {[
-              '📡 Fetches your latest bill from NEA · KUKL · ISP · TV · Insurance',
-              '🔔 Sends reminder 3 days + 1 day + 1 hour before due date',
-              '🏠 Rent tracker — reminds 3 days before monthly due date',
-              '⚡ Auto-pay option — only activates when you opt in',
-              '💳 Pay via eSewa or PaySmart Wallet',
-              '👨‍👩‍👧 Pay family members\' bills (parents, siblings)',
-            ].map((tip, i) => (
-              <p key={i} className="text-xs text-gray-500">{tip}</p>
-            ))}
-          </div>
-        </div>
       </div>
 
       <BottomNav />
@@ -699,19 +807,30 @@ export default function SmartBills() {
 // Individual bill card
 // ─────────────────────────────────────────────────────────────────────────────
 function BillCard({
-  acc, bill, fetching, validation, onFetch, onFetchAndPay, onPay, onSchedule, onDelete,
+  acc, bill, fetching, validation, linkedSchedule,
+  onFetch, onFetchAndPay, onPay, onSchedule, onPackageChange, onDelete,
 }: {
   acc: BillerAccount;
   bill: FetchedBill | undefined;
   fetching: boolean;
-  validation?: 'valid' | 'not_found' | 'no_url';
+  validation?: 'valid' | 'no_due' | 'not_found' | 'no_url';
+  linkedSchedule?: Schedule;
   onFetch: () => void;
   onFetchAndPay: () => void;
   onPay: (b: FetchedBill) => void;
   onSchedule: (b: FetchedBill) => void;
+  onPackageChange: (pkg: string, price: number) => void;
   onDelete: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [confirmPkg, setConfirmPkg] = useState<{ pkg: string; price: number } | null>(null);
+
+  const isInternet = acc.billerCategory.toUpperCase() === 'INTERNET';
+  // Rent and Other/P2P are manual — no merchant fees, fines, or rebates
+  const isManual   = ['RENT', 'OTHER'].includes(acc.billerCategory.toUpperCase());
+  const details    = (acc.details ?? {}) as Record<string, unknown>;
+  const currentPkg = details.package   as string | undefined;
+  const currentPrice = details.packagePrice ? Number(details.packagePrice) : undefined;
   const cat   = CAT_META[acc.billerCategory.toUpperCase()] ?? { icon: <span>📄</span>, label: acc.billerCategory, bg: 'bg-gray-50', accent: 'text-gray-700' };
   const total = bill ? bill.currentAmount + bill.fine + bill.serviceCharge - bill.rebate : 0;
 
@@ -775,30 +894,113 @@ function BillCard({
           </div>
         </div>
       )}
+      {validation === 'no_due' && !bill && (
+        <div className="px-4 pb-3 -mt-1">
+          <div className="bg-green-50 border border-green-100 rounded-xl px-3 py-2 flex items-center gap-2">
+            <span className="text-green-500 text-sm">✅</span>
+            <div>
+              <p className="text-green-700 text-xs font-semibold">No pending bill</p>
+              <p className="text-green-500 text-[10px]">All payments are up to date</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Expanded content */}
       {expanded && (
         <div className="border-t border-gray-50 px-4 pb-4 pt-3">
+
+          {/* ── Internet package selector ── */}
+          {isInternet && (
+            <div className="mb-3">
+              <p className="text-xs font-semibold text-gray-500 mb-2">
+                Internet Package
+                {currentPkg && <span className="ml-1 text-primary font-bold">· {currentPkg}</span>}
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {INTERNET_PACKAGES.map(pkg => {
+                  const isCurrent = currentPkg === pkg.label;
+                  return (
+                    <button
+                      key={pkg.speed}
+                      type="button"
+                      onClick={() => {
+                        if (isCurrent) return;
+                        // If same price → no schedule impact, just update
+                        if (!linkedSchedule || linkedSchedule.amount === pkg.price) {
+                          onPackageChange(pkg.label, pkg.price);
+                        } else {
+                          setConfirmPkg({ pkg: pkg.label, price: pkg.price });
+                        }
+                      }}
+                      className={`flex flex-col items-center py-2 rounded-xl border transition-all active:scale-95 ${
+                        isCurrent ? 'border-green-500 bg-green-50 shadow-sm' : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      {isCurrent && <span className="absolute top-1 right-1.5 text-green-500 text-[10px] font-bold">✓</span>}
+                      <p className={`text-xs font-bold ${isCurrent ? 'text-green-700' : 'text-gray-700'}`}>{pkg.label}</p>
+                      <p className={`text-[10px] ${isCurrent ? 'text-green-600' : 'text-gray-400'}`}>NPR {pkg.price.toLocaleString()}/mo</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {linkedSchedule && (
+                <p className="text-[10px] text-gray-400 mt-1.5">
+                  Linked schedule: <span className="font-medium text-gray-600">{linkedSchedule.name}</span> — NPR {linkedSchedule.amount.toLocaleString()}/mo
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* ── Package change confirmation ── */}
+          {confirmPkg && (
+            <div className="mb-3 bg-amber-50 border border-amber-200 rounded-2xl p-3">
+              <p className="text-amber-800 text-xs font-semibold mb-0.5">Confirm package change</p>
+              <p className="text-amber-700 text-[11px] mb-3">
+                Change to <strong>{confirmPkg.pkg}</strong>? Amount will update from{' '}
+                <strong>NPR {(currentPrice ?? linkedSchedule?.amount ?? 0).toLocaleString()}</strong> to{' '}
+                <strong>NPR {confirmPkg.price.toLocaleString()}</strong>
+                {linkedSchedule ? ' · Schedule will be updated automatically.' : '.'}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { onPackageChange(confirmPkg.pkg, confirmPkg.price); setConfirmPkg(null); }}
+                  className="flex-1 py-2 bg-primary text-white text-xs font-bold rounded-xl active:scale-95"
+                >
+                  Confirm
+                </button>
+                <button
+                  onClick={() => setConfirmPkg(null)}
+                  className="flex-1 py-2 border border-gray-200 text-gray-500 text-xs font-semibold rounded-xl"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Due badge */}
           {dueLabel && (
             <p className="text-xs font-semibold text-gray-600 mb-3">{dueLabel}</p>
           )}
 
-          {/* Not yet fetched — show Pay Now (fetches + opens modal in one step) */}
+          {/* Not yet fetched — only show Pay Now if merchant is known to have dues */}
           {!bill && !fetching && (
             <div className="flex gap-2 mb-3">
-              <button
-                onClick={onFetchAndPay}
-                className="flex-1 py-3 bg-primary text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm active:scale-95 transition-transform"
-              >
-                ⚡ Pay Now
-              </button>
+              {/* Hide Pay Now when we know there's no pending bill */}
+              {validation !== 'no_due' && (
+                <button
+                  onClick={onFetchAndPay}
+                  className="flex-1 py-3 bg-primary text-white font-bold rounded-xl flex items-center justify-center gap-2 text-sm active:scale-95 transition-transform"
+                >
+                  ⚡ Pay Now
+                </button>
+              )}
               <button
                 onClick={onFetch}
-                className="flex-1 py-3 border-2 border-gray-200 text-gray-500 font-semibold rounded-xl text-sm active:scale-95 transition-transform"
+                className={`py-3 border-2 border-gray-200 text-gray-500 font-semibold rounded-xl text-sm active:scale-95 transition-transform ${validation === 'no_due' ? 'w-full' : 'flex-1'}`}
               >
-                📋 View Bill
+                {validation === 'no_due' ? '🔄 Check for New Bill' : '📋 View Bill'}
               </button>
             </div>
           )}
@@ -810,7 +1012,8 @@ function BillCard({
             </div>
           )}
 
-          {bill && bill.status !== 'PAID' && (
+          {/* Only show bill details + Pay Now when there's a real bill with an amount */}
+          {bill && bill.status !== 'PAID' && bill.currentAmount > 0 && (
             <>
               {/* Bill details breakdown */}
               <div className="bg-gray-50 rounded-xl p-3 mb-3 text-xs">
@@ -841,19 +1044,20 @@ function BillCard({
                     <p className="text-gray-400">Bill Amount</p>
                     <p className="font-semibold text-gray-800">NPR {bill.currentAmount.toLocaleString()}</p>
                   </div>
-                  {bill.serviceCharge > 0 && (
+                  {/* Service charge, fine, rebate only for utility merchants — not for Rent/Other */}
+                  {bill.serviceCharge > 0 && !isManual && (
                     <div>
                       <p className="text-gray-400">Service Charge</p>
                       <p className="font-semibold text-gray-800">NPR {bill.serviceCharge}</p>
                     </div>
                   )}
-                  {bill.fine > 0 && (
+                  {bill.fine > 0 && !isManual && (
                     <div>
-                      <p className="text-red-400">Late Fine (2%)</p>
+                      <p className="text-red-400">Late Fine</p>
                       <p className="font-semibold text-red-600">+ NPR {bill.fine}</p>
                     </div>
                   )}
-                  {bill.rebate > 0 && (
+                  {bill.rebate > 0 && !isManual && (
                     <div>
                       <p className="text-green-500">Early Rebate</p>
                       <p className="font-semibold text-green-600">− NPR {bill.rebate}</p>
@@ -872,37 +1076,48 @@ function BillCard({
                   onClick={() => onPay(bill)}
                   className="flex-1 py-3 bg-primary text-white font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
                 >
-                  ⚡ Pay Now
-                </button>
-                <button
-                  onClick={() => onSchedule(bill)}
-                  className="flex-1 py-3 border-2 border-primary text-primary font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
-                >
-                  📅 Schedule
+                  {ESEWA_LOGO_24}
+                  <span>Pay NPR {total.toLocaleString()}</span>
                 </button>
               </div>
-              <button
-                onClick={onFetch}
-                disabled={fetching}
-                className="w-full py-2.5 text-gray-400 text-xs font-medium"
-              >
-                🔄 Refresh Bill
-              </button>
+              <div className="flex gap-2 mb-1">
+                <button
+                  onClick={() => onSchedule(bill)}
+                  className="flex-1 py-2.5 border border-primary/40 text-primary font-semibold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95"
+                >
+                  📅 Auto-Schedule
+                </button>
+                <button
+                  onClick={onFetch}
+                  disabled={fetching}
+                  className="flex-1 py-2.5 border border-gray-200 text-gray-500 font-semibold rounded-xl text-xs flex items-center justify-center gap-1 active:scale-95"
+                >
+                  🔄 Refresh
+                </button>
+              </div>
             </>
           )}
 
           {bill?.status === 'PAID' && (
-            <div className="text-center py-3">
-              <p className="text-green-600 font-bold">✅ Bill paid for {bill.billPeriod}</p>
-              <p className="text-gray-400 text-xs mt-1">
-                Paid on {new Date(bill.fetchedAt).toLocaleDateString('en-NP', { day: 'numeric', month: 'long' })}
+            <div className="bg-green-50 rounded-2xl p-4 text-center">
+              <p className="text-green-600 font-bold text-sm">✅ Paid — {bill.billPeriod}</p>
+              <p className="text-gray-400 text-xs mt-0.5">
+                NPR {total.toLocaleString()} on {new Date(bill.fetchedAt).toLocaleDateString('en-NP', { day: 'numeric', month: 'short' })}
               </p>
-              <button
-                onClick={onFetch}
-                className="mt-3 text-primary text-xs font-semibold border border-primary/30 rounded-xl px-4 py-2"
-              >
-                Check Next Bill
-              </button>
+              <div className="flex gap-2 mt-3">
+                <button
+                  onClick={onFetch}
+                  className="flex-1 py-2.5 bg-white border border-primary/30 text-primary text-xs font-bold rounded-xl"
+                >
+                  📄 Next Bill
+                </button>
+                <button
+                  onClick={() => onSchedule(bill)}
+                  className="flex-1 py-2.5 bg-white border border-gray-200 text-gray-700 text-xs font-bold rounded-xl"
+                >
+                  📅 Auto-Schedule
+                </button>
+              </div>
             </div>
           )}
 

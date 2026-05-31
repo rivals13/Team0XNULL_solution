@@ -118,7 +118,7 @@ export default function MerchantDashboard() {
         due_date:      pushForm.due_date,
         description:   pushForm.description,
       });
-      setPushSuccess(`✅ Bill sent! ID: ${result.billId}`);
+      setPushSuccess(` Bill sent! ID: ${result.billId}`);
       setPushForm({ student_phone: '', amount: '', due_date: '', description: '' });
       merchantApi.getBills(apiKey).then(b => setBills(b.data)).catch(() => {});
     } catch (err: unknown) {
@@ -141,7 +141,7 @@ export default function MerchantDashboard() {
           ? pm.banks.map(({ _id: _,  ...rest }) => rest)
           : undefined,
       });
-      setPmSuccess('✅ Payment methods saved successfully!');
+      setPmSuccess(' Payment methods saved successfully!');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setPmError(msg ?? 'Failed to save payment methods');

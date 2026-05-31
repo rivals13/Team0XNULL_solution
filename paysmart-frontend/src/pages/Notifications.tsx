@@ -361,7 +361,7 @@ export default function Notifications() {
                                 )}
                                 {alreadyPaid ? (
                                   <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-4 py-2.5">
-                                    <span>✅</span><p className="text-green-700 text-sm font-semibold">Payment done</p>
+                                    <span></span><p className="text-green-700 text-sm font-semibold">Payment done</p>
                                   </div>
                                 ) : (
                                   <div className="flex flex-col gap-2">
@@ -393,7 +393,7 @@ export default function Notifications() {
                             <div className="px-4 pb-4">
                               {alreadyPaid ? (
                                 <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-4 py-2.5">
-                                  <span>✅</span><p className="text-green-700 text-sm font-semibold">Payment done</p>
+                                  <span></span><p className="text-green-700 text-sm font-semibold">Payment done</p>
                                 </div>
                               ) : (
                                 <div className="flex gap-2">

@@ -6,6 +6,10 @@ import BottomNav from '../../components/BottomNav';
 import Spinner from '../../components/Spinner';
 import { BsPencil, BsPauseFill, BsPlayFill, BsXCircle, BsCalendarCheck } from 'react-icons/bs';
 import { IoChevronBack } from 'react-icons/io5';
+import { INTERNET_PACKAGES } from '../onboarding/Onboarding';
+
+// Internet merchant slugs that support package selection
+const INTERNET_SLUGS = new Set(['vianet', 'worldlink', 'cgnet', 'subisu', 'dishome-fiber']);
 
 const FREQ_LABELS: Record<string, string> = {
   ONCE: 'One-time', DAILY: 'Daily', WEEKLY: 'Weekly',
@@ -39,8 +43,11 @@ export default function Schedules() {
     setToast({ msg, type });
   }, []);
 
+  const sortByDate = (list: Schedule[]) =>
+    [...list].sort((a, b) => new Date(a.nextRunAt).getTime() - new Date(b.nextRunAt).getTime());
+
   const load = async () => {
-    try { setSchedules(await schedulesApi.list()); }
+    try { setSchedules(sortByDate(await schedulesApi.list())); }
     catch { showToast('Failed to load schedules', 'error'); }
     finally { setLoading(false); }
   };
@@ -49,7 +56,9 @@ export default function Schedules() {
     load();
     const onCreated = (e: Event) => {
       const s = (e as CustomEvent<Schedule>).detail;
-      if (s?.id) setSchedules(prev => prev.some(x => x.id === s.id) ? prev : [s, ...prev]);
+      if (s?.id) setSchedules(prev =>
+        prev.some(x => x.id === s.id) ? prev : sortByDate([...prev, s])
+      );
     };
     window.addEventListener('scheduleCreated', onCreated);
     return () => window.removeEventListener('scheduleCreated', onCreated);
@@ -271,35 +280,65 @@ function EditModal({
   onSave: (data: Parameters<typeof schedulesApi.update>[1]) => void;
   onClose: () => void;
 }) {
+  // Detect if this schedule is for an internet provider (parse [merchant:xxx] from description)
+  const merchantSlugMatch = s.description?.match(/\[merchant:([\w-]+)\]/);
+  const merchantSlug      = merchantSlugMatch ? merchantSlugMatch[1] : '';
+  const isInternetSchedule = INTERNET_SLUGS.has(merchantSlug);
+
+  // Detect current package from description or amount match
+  const currentPkg = (() => {
+    if (!isInternetSchedule) return null;
+    return INTERNET_PACKAGES.find(p => p.price === s.amount) ?? null;
+  })();
+
+  // If the stored nextRunAt is in the past, default to tomorrow 09:00 so the form is valid
+  const safeNextRunAt = (() => {
+    const d = new Date(s.nextRunAt);
+    if (d.getTime() > Date.now() + 60_000) return d.toISOString().slice(0, 16);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+    return tomorrow.toISOString().slice(0, 16);
+  })();
+
   const [form, setForm] = useState({
     name:           s.name,
     amount:         String(s.amount),
     frequency:      s.frequency as string,
-    nextRunAt:      new Date(s.nextRunAt).toISOString().slice(0, 16),
+    nextRunAt:      safeNextRunAt,
     maxOccurrences: s.maxOccurrences > 0 ? String(s.maxOccurrences) : '',
     description:    s.description ?? '',
   });
+  const [selectedPkg, setSelectedPkg] = useState(currentPkg);
   const [err, setErr] = useState('');
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }));
 
+  const pickPackage = (pkg: typeof INTERNET_PACKAGES[number]) => {
+    setSelectedPkg(pkg);
+    setForm(p => ({ ...p, amount: String(pkg.price) }));
+  };
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     setErr('');
-    if (!form.name.trim())            { setErr('Name is required'); return; }
-    if (Number(form.amount) <= 0)     { setErr('Amount must be greater than 0'); return; }
-    if (!form.nextRunAt)              { setErr('Date is required'); return; }
-    if (new Date(form.nextRunAt) <= new Date(Date.now() + 60_000)) {
-      setErr('Date must be at least 1 minute in the future'); return;
+    if (!form.name.trim())         { setErr('Name is required'); return; }
+    if (Number(form.amount) <= 0)  { setErr('Amount must be greater than 0'); return; }
+    if (!form.nextRunAt)           { setErr('Next payment date is required'); return; }
+    // Only reject dates that are in the past AND not ONCE (recurring needs a valid future date)
+    const chosen = new Date(form.nextRunAt);
+    if (isNaN(chosen.getTime()))   { setErr('Invalid date'); return; }
+    if (form.frequency !== 'ONCE' && chosen.getTime() <= Date.now()) {
+      setErr('For recurring schedules, next payment date must be in the future.'); return;
     }
     const maxOcc = form.maxOccurrences ? Number(form.maxOccurrences) : 0;
-    if (maxOcc < 0 || maxOcc > 10)   { setErr('Max occurrences must be 0–10'); return; }
+    if (maxOcc < 0 || maxOcc > 10) { setErr('Max occurrences must be 0–10'); return; }
 
     onSave({
       name:           form.name,
       amount:         Number(form.amount),
       frequency:      form.frequency,
-      nextRunAt:      new Date(form.nextRunAt).toISOString(),
+      nextRunAt:      chosen.toISOString(),
       maxOccurrences: maxOcc,
       description:    form.description || undefined,
     });
@@ -319,6 +358,43 @@ function EditModal({
           <div className="bg-gray-50 rounded-xl px-4 py-3 text-xs text-gray-500">
             🔒 Merchant, Customer ID, and payment destination cannot be changed
           </div>
+
+          {/* Internet package selector */}
+          {isInternetSchedule && (
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-2 block">
+                Internet Package
+                {selectedPkg && (
+                  <span className="ml-1.5 text-primary font-bold">· {selectedPkg.label} selected</span>
+                )}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {INTERNET_PACKAGES.map(pkg => {
+                  const isSelected = selectedPkg?.speed === pkg.speed;
+                  return (
+                    <button
+                      key={pkg.speed}
+                      type="button"
+                      onClick={() => pickPackage(pkg)}
+                      className={`flex flex-col items-center py-2.5 rounded-xl border-2 transition-all active:scale-95 ${
+                        isSelected ? 'border-primary bg-[#E8F5EE]' : 'border-gray-200 bg-gray-50'
+                      }`}
+                    >
+                      <p className={`text-xs font-bold ${isSelected ? 'text-primary' : 'text-gray-700'}`}>{pkg.label}</p>
+                      <p className={`text-[10px] ${isSelected ? 'text-primary/70' : 'text-gray-400'}`}>
+                        NPR {pkg.price.toLocaleString()}/mo
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedPkg && (
+                <p className="text-[10px] text-gray-400 mt-1.5 px-1">
+                  Amount will update to <span className="font-semibold text-primary">NPR {selectedPkg.price.toLocaleString()}</span>
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Name */}
           <div>
@@ -351,7 +427,6 @@ function EditModal({
           <div>
             <label className="text-xs font-semibold text-gray-600 mb-1 block">Next Payment Date</label>
             <input type="datetime-local" value={form.nextRunAt} onChange={set('nextRunAt')}
-              min={new Date(Date.now() + 5 * 60 * 1000).toISOString().slice(0, 16)}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-primary" />
           </div>
 
@@ -359,10 +434,10 @@ function EditModal({
           {form.frequency !== 'ONCE' && (
             <div>
               <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                Max Payments <span className="text-gray-400 font-normal">(1–10, or leave blank for unlimited)</span>
+                Max Payments <span className="text-gray-400 font-normal">(1–10)</span>
               </label>
               <input type="number" value={form.maxOccurrences} onChange={set('maxOccurrences')}
-                min="0" max="10" placeholder="Unlimited"
+                min="0" max="10" placeholder="repeat times"
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50 text-sm focus:outline-none focus:border-primary" />
             </div>
           )}

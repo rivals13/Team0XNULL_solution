@@ -72,6 +72,10 @@ export class BillInquiryController {
     if (!result) {
       return { valid: false, reason: 'CUSTOMER_NOT_FOUND' };
     }
+    // Customer found but no pending bill (hasDue: false)
+    if ((result as any).__noDue === true) {
+      return { valid: true, bill: null, reason: 'NO_DUE' };
+    }
 
     return { valid: true, bill: result };
   }

@@ -1,9 +1,9 @@
-import { Controller, Get, Param, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Req, Body } from '@nestjs/common';
 import {
   ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam,
 } from '@nestjs/swagger';
 import { Request } from 'express';
-import { UsersService } from './users.service';
+import { UsersService, UserPreferences } from './users.service';
 
 interface AuthRequest extends Request {
   user: { id: string };
@@ -58,6 +58,22 @@ Calculates a **0–100 financial health score** based on three factors:
   @ApiResponse({ status: 404, description: 'User not found' })
   getHealthScore(@Param('userId') userId: string) {
     return this.users.getHealthScore(userId);
+  }
+
+  // ─── GET /users/preferences ───────────────────────────────────────────────
+
+  @Get('preferences')
+  @ApiOperation({ summary: 'Get the current user\'s payment preferences' })
+  getPreferences(@Req() req: AuthRequest) {
+    return this.users.getPreferences(req.user.id);
+  }
+
+  // ─── PATCH /users/preferences ─────────────────────────────────────────────
+
+  @Patch('preferences')
+  @ApiOperation({ summary: 'Update payment preferences (partial update)' })
+  updatePreferences(@Req() req: AuthRequest, @Body() body: Partial<UserPreferences>) {
+    return this.users.updatePreferences(req.user.id, body);
   }
 
   // ─── GET /users/bills/my ──────────────────────────────────────────────────

@@ -6,6 +6,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { BalanceService } from '../../schedule/balance.service';
 import { SmsService } from '../../sms/sms.service';
 import { EncryptionService } from '../../common/encryption/encryption.service';
+import { UsersService } from '../../users/users.service';
+import { NotificationsService } from '../../notifications/notifications.service';
 import {
   SCHEDULE_QUEUE,
   BALANCE_CHECK_DAY_JOB,
@@ -23,10 +25,12 @@ export class BalanceCheckProcessor {
   private readonly logger = new Logger(BalanceCheckProcessor.name);
 
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly prisma:         PrismaService,
     private readonly balanceService: BalanceService,
-    private readonly smsService: SmsService,
-    private readonly enc: EncryptionService,
+    private readonly smsService:     SmsService,
+    private readonly enc:            EncryptionService,
+    private readonly usersService:   UsersService,
+    private readonly notifications:  NotificationsService,
   ) {}
 
   @Process(BALANCE_CHECK_DAY_JOB)
@@ -45,91 +49,61 @@ export class BalanceCheckProcessor {
     const { scheduleId, userId } = data;
     this.logger.log(`[BalanceCheck] ${window} check for schedule ${scheduleId}`);
 
-    // 1. Fetch schedule — skip if cancelled / paused
-    const schedule = await this.prisma.schedule.findUnique({
-      where: { id: scheduleId },
-      include: { user: { select: { phone: true, name: true } } },
-    });
+    // 1. Fetch schedule + user preferences
+    const [schedule, prefs] = await Promise.all([
+      this.prisma.schedule.findUnique({
+        where: { id: scheduleId },
+        include: { user: { select: { phone: true, name: true } } },
+      }),
+      this.usersService.getPreferences(userId),
+    ]);
 
-    if (!schedule) {
-      this.logger.warn(`[BalanceCheck] Schedule ${scheduleId} not found — skipping`);
-      return;
-    }
-
-    if (schedule.status !== ScheduleStatus.ACTIVE) {
-      this.logger.log(`[BalanceCheck] Schedule ${scheduleId} is ${schedule.status} — skipping`);
-      return;
-    }
+    if (!schedule) { this.logger.warn(`[BalanceCheck] Schedule ${scheduleId} not found`); return; }
+    if (schedule.status !== ScheduleStatus.ACTIVE) { return; }
 
     // 2. Check balance
-    const result = await this.balanceService.getBalance(userId, schedule.provider);
+    const result    = await this.balanceService.getBalance(userId, schedule.provider);
     const sufficient = result.balance >= schedule.amount;
+    const shortRef   = `"${schedule.name}"`;
 
-    this.logger.log(
-      `[BalanceCheck] ${schedule.provider} balance: ${result.balance} NPR | ` +
-      `Required: ${schedule.amount} NPR | Sufficient: ${sufficient}`,
-    );
-
-    // 3. Build messages
-    const shortRef = `"${schedule.name}"`;
+    this.logger.log(`[BalanceCheck] ${schedule.provider} balance: ${result.balance} | Required: ${schedule.amount} | Sufficient: ${sufficient}`);
 
     if (sufficient) {
-      // All good — just a heads-up SMS so user knows auto-payment is coming
-      const msg =
-        window === '24 hours'
-          ? `PaySmart: Your scheduled payment ${shortRef} of Rs.${schedule.amount} via ${schedule.provider} ` +
-            `will auto-execute TOMORROW. Balance: Rs.${result.balance} ✓`
-          : `PaySmart: Scheduled payment ${shortRef} of Rs.${schedule.amount} via ${schedule.provider} ` +
-            `will execute in ~1 HOUR. Balance: Rs.${result.balance} ✓`;
+      const msg = window === '24 hours'
+        ? `PaySmart: Scheduled payment ${shortRef} of NPR ${schedule.amount} will execute TOMORROW. Balance NPR ${result.balance} ✓`
+        : `PaySmart: Scheduled payment ${shortRef} of NPR ${schedule.amount} executes in ~1 HOUR. Balance NPR ${result.balance} ✓`;
 
-      if (schedule.user.phone) {
+      // ── SMS Reminder (honours smsReminder preference) ──
+      if (prefs.smsReminder && schedule.user.phone) {
         this.smsService.send(this.enc.decrypt(schedule.user.phone), msg);
+        this.logger.log(`[BalanceCheck] SMS sent (smsReminder=ON) for schedule ${scheduleId}`);
       }
 
-      await this.saveNotification(userId, NotificationType.SCHEDULE_REMINDER, {
-        title: `Upcoming payment — ${window} notice`,
-        body: msg,
-        scheduleId,
-        balance: result.balance,
-        required: schedule.amount,
-        amount: schedule.amount,
-        recipientId: schedule.recipientId,
-        provider: schedule.provider,
-        scheduleName: schedule.name,
-        sufficient: true,
-      });
+      // ── Push Notification (honours pushNotification preference) ──
+      if (prefs.pushNotification) {
+        await this.notifications.sendNotification(userId, 'SCHEDULE_REMINDER' as any, `Payment due — ${window}`, msg, {
+          scheduleId, amount: schedule.amount, recipientId: schedule.recipientId,
+          provider: schedule.provider, scheduleName: schedule.name,
+        });
+      } else {
+        // Still save in DB (no WS/FCM push)
+        await this.saveNotification(userId, NotificationType.SCHEDULE_REMINDER, {
+          title: `Payment due — ${window}`, body: msg,
+          scheduleId, balance: result.balance, amount: schedule.amount,
+        });
+      }
     } else {
-      // Insufficient balance — alert user urgently
       const shortfall = schedule.amount - result.balance;
-      const alertMsg =
-        `PaySmart ALERT: Insufficient balance for scheduled payment ${shortRef}. ` +
-        `Need Rs.${schedule.amount} | Have Rs.${result.balance} | Shortfall Rs.${shortfall}. ` +
-        `Please top up your ${schedule.provider} wallet within ${window}.`;
+      const alertMsg  = `PaySmart ALERT: Low balance for ${shortRef}. Need NPR ${schedule.amount} | Have NPR ${result.balance} | Shortfall NPR ${shortfall}. Top up within ${window}.`;
 
+      // Always send low-balance alert regardless of preferences (critical)
       if (schedule.user.phone) {
         this.smsService.send(this.enc.decrypt(schedule.user.phone), alertMsg);
       }
-
-      await this.saveNotification(userId, NotificationType.PAYMENT_FAILED, {
-        title: `Low balance — payment at risk`,
-        body: alertMsg,
-        scheduleId,
-        balance: result.balance,
-        required: schedule.amount,
-        shortfall,
-        sufficient: false,
+      await this.notifications.sendNotification(userId, 'PAYMENT_FAILED' as any, 'Low balance — payment at risk', alertMsg, {
+        scheduleId, balance: result.balance, required: schedule.amount, shortfall, sufficient: false,
       });
-
-      // Bump retryCount so we know this schedule had pre-flight warnings
-      await this.prisma.schedule.update({
-        where: { id: scheduleId },
-        data: { retryCount: { increment: 0 } }, // no-op — just a hook for future logic
-      });
-
-      this.logger.warn(
-        `[BalanceCheck] LOW BALANCE — user ${userId}, schedule ${scheduleId}, ` +
-        `shortfall: Rs.${shortfall}`,
-      );
+      this.logger.warn(`[BalanceCheck] LOW BALANCE — user ${userId}, schedule ${scheduleId}, shortfall: NPR ${shortfall}`);
     }
   }
 

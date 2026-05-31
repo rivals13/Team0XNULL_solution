@@ -32,9 +32,9 @@ export default function Register() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <div className="bg-primary px-6 pt-16 pb-10 rounded-b-[40px]">
-        <h1 className="text-3xl font-bold text-white">Create Account</h1>
-        <p className="text-white/70 mt-1">Start managing your bills smartly</p>
+      <div className="bg-white  text-center px-6 pt-14 pb-8 rounded-b-[40px]">
+        <h1 className="text-3xl font-bold text-primary">Create Account</h1>
+        <p className="text-primary/70 mt-1">Start managing your bills smartly</p>
       </div>
 
       <div className="flex-1 px-6 pt-6 pb-8">

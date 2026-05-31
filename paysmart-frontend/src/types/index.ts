@@ -49,6 +49,7 @@ export type ScheduleStatus = 'ACTIVE' | 'PAUSED' | 'CANCELLED' | 'COMPLETED';
 export interface Schedule {
   id: string;
   userId: string;
+  billerAccountId?: string;  // set when schedule was created from a biller account
   name: string;
   amount: number;
   provider: string;
@@ -185,7 +186,7 @@ export interface BillerAccount {
 // Onboarding category meta (used for the service-grid step)
 export type BillerCategory =
   | 'electricity' | 'water' | 'education' | 'traffic'
-  | 'internet' | 'tv' | 'rent' | 'insurance' | 'school' | 'college';
+  | 'internet' | 'tv' | 'rent' | 'insurance' | 'school' | 'college' | 'other';
 
 // ── Fetched Bill (mock real-time bill from NEA / KUKL / ISP / TV APIs) ────────
 export interface FetchedBill {

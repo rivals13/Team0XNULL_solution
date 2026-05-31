@@ -22,6 +22,13 @@ export const authApi = {
   me: () => client.get<User>('/auth/me').then(r => r.data),
 };
 
+export interface UserPreferences {
+  autoPayEnabled:   boolean;
+  smsReminder:      boolean;
+  pushNotification: boolean;
+  partialPayment:   boolean;
+}
+
 // ── Users ───────────────────────────────────────────────────────────────────
 export const usersApi = {
   getHealthScore: (userId: string) =>
@@ -32,6 +39,12 @@ export const usersApi = {
 
   getMyBills: () =>
     client.get<Bill[]>('/users/bills/my').then(r => r.data),
+
+  getPreferences: () =>
+    client.get<UserPreferences>('/users/preferences').then(r => r.data),
+
+  updatePreferences: (patch: Partial<UserPreferences>) =>
+    client.patch<UserPreferences>('/users/preferences', patch).then(r => r.data),
 };
 
 // ── Transactions ────────────────────────────────────────────────────────────
@@ -164,6 +177,21 @@ export const billerAccountsApi = {
 
   checkBill: (id: string) =>
     client.post(`/biller-accounts/${id}/check-bill`).then(r => r.data),
+
+  /** Update internet package and persist to encrypted details */
+  updatePackage: (id: string, pkg: string, packagePrice: number) =>
+    client.patch(`/biller-accounts/${id}/package`, { package: pkg, packagePrice }).then(r => r.data),
+};
+
+// ── Mock Merchant actions ────────────────────────────────────────────────────
+export const mockMerchantApi = {
+  /** Notify mock merchant of a customer action (SAVED / PAY_NOW / SCHEDULED) */
+  customerAction: (
+    slug: string,
+    data: { customerId: string; action: 'SAVED' | 'PAY_NOW' | 'SCHEDULED'; amount?: number; scheduledDate?: string },
+  ) => client.post<{ received: boolean; hasDue: boolean; amount?: number; dueDate?: string; message?: string }>(
+    `/mock-merchant/${slug}/customer-action`, data,
+  ).then(r => r.data).catch(() => null),
 };
 
 // ── Bill Inquiry (validate customer ID without saving an account) ─────────────

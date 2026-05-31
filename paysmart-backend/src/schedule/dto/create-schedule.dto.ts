@@ -46,7 +46,7 @@ export class CreateScheduleDto {
   @IsBoolean()
   autoRetry?: boolean;
 
-  @ApiPropertyOptional({ example: 3, description: '0 = unlimited, 1-10 = stop after N payments' })
+  @ApiPropertyOptional({ example: 3, description: '0 = repeat forever, 1-10 = stop after N payments' })
   @IsOptional()
   @IsInt()
   @Min(0)

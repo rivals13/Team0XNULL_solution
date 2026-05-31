@@ -34,22 +34,22 @@ function SmartBillsUtilIcon({ className }: { className?: string }) {
 }
 
 const UTILITIES = [
-  { label: 'Topup',       icon: <MdOutlinePhoneAndroid className="w-5 h-5" />, path: '/pay/mobile' },
-  { label: 'Electricity', icon: <BsLightningCharge className="w-5 h-5" />,     path: '/pay/electricity' },
-  { label: 'Water',       icon: <FaWater className="w-5 h-5" />,               path: '/pay/water' },
-  { label: 'Internet',    icon: <BsWifi className="w-5 h-5" />,                path: '/pay/internet' },
-  { label: 'Television',  icon: <BsTv className="w-5 h-5" />,                  path: '/pay/tv' },
-  { label: 'Airlines',    icon: <MdFlight className="w-5 h-5" />,              path: '/pay/airlines' },
-  { label: 'Movies',      icon: <MdLocalMovies className="w-5 h-5" />,         path: '/pay/movies' },
+  { label: 'Topup', icon: <MdOutlinePhoneAndroid className="w-5 h-5" />, path: '/pay/mobile', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Electricity', icon: <BsLightningCharge className="w-5 h-5" />, path: '/pay/electricity', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Water', icon: <FaWater className="w-5 h-5" />, path: '/pay/water', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Internet', icon: <BsWifi className="w-5 h-5" />, path: '/pay/internet', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Television', icon: <BsTv className="w-5 h-5" />, path: '/pay/tv', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Airlines', icon: <MdFlight className="w-5 h-5" />, path: '/pay/airlines', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Movies', icon: <MdLocalMovies className="w-5 h-5" />, path: '/pay/movies', color: 'text-green-700', bg: 'bg-white' },
   // Smart Bills replaces "More" — "More" is already in the bottom nav
-  { label: 'Smart Bills', icon: <SmartBillsUtilIcon className="w-5 h-5" />,   path: '/smart-bills', highlight: true },
+  { label: 'Smart Bills', icon: <SmartBillsUtilIcon className="w-5 h-5" />, path: '/smart-bills', color: 'text-green-700', bg: 'bg-white' },
 ];
 
 const QUICK_ACTIONS = [
-  { label: 'Load Money',    icon: <HiOutlinePlusSm className="w-5 h-5" />, path: '/load',       color: 'text-green-600',  bg: 'bg-green-50'  },
-  { label: 'Send Money',    icon: <BsSendFill className="w-4 h-4" />,      path: '/payments',   color: 'text-blue-600',   bg: 'bg-blue-50'   },
-  { label: 'Bank Transfer', icon: <BsBank2 className="w-4 h-4" />,         path: '/bank',       color: 'text-purple-600', bg: 'bg-purple-50' },
-  { label: 'Remittance',   icon: <BsArrowUpRight className="w-4 h-4" />,  path: '/remittance', color: 'text-orange-600', bg: 'bg-orange-50' },
+  { label: 'Load Money', icon: <HiOutlinePlusSm className="w-5 h-5" />, path: '/load', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Send Money', icon: <BsSendFill className="w-4 h-4" />, path: '/payments', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Bank Transfer', icon: <BsBank2 className="w-4 h-4" />, path: '/bank', color: 'text-green-700', bg: 'bg-white' },
+  { label: 'Remittance', icon: <BsArrowUpRight className="w-4 h-4" />, path: '/remittance', color: 'text-green-700', bg: 'bg-white' },
 ];
 
 function daysUntil(dateStr: string) {
@@ -58,36 +58,30 @@ function daysUntil(dateStr: string) {
 
 export default function Dashboard() {
   const { user, accessToken } = useAuthStore();
-  const navigate              = useNavigate();
-  const { toasts, show }      = useToast();
+  const navigate = useNavigate();
+  const { toasts, show } = useToast();
   const { lang, toggle: toggleLang, t } = useLang();
 
-  const [schedules,      setSchedules]      = useState<Schedule[]>([]);
-  const [suggestions,    setSuggestions]    = useState<Suggestion[]>([]);
-  const [bills,          setBills]          = useState<Bill[]>([]);
-  const [billerAccounts, setBillerAccounts] = useState<BillerAccount[]>([]);
-  const [balance,        setBalance]        = useState<number | null>(null);
-  const [balanceHidden,  setBalanceHidden]  = useState(false);
-  const [unread,         setUnread]         = useState(0);
-  const [liveNotif,      setLiveNotif]      = useState<Notification | null>(null);
-  const [billAlert,      setBillAlert]      = useState<Notification | null>(null);
-  const [loadingBills,   setLoadingBills]   = useState(true);
-  const [activeSugIdx,   setActiveSugIdx]   = useState(0);
+  const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [bills, setBills] = useState<Bill[]>([]);
+  const [balance, setBalance] = useState<number | null>(null);
+  const [balanceHidden, setBalanceHidden] = useState(false);
+  const [unread, setUnread] = useState(0);
+  const [liveNotif, setLiveNotif] = useState<Notification | null>(null);
+  const [loadingBills, setLoadingBills] = useState(true);
+  const [activeSugIdx, setActiveSugIdx] = useState(0);
 
   const refreshBalance = useCallback(() => {
-    paymentsApi.getBalance().then(r => setBalance(r.balance)).catch(() => {});
+    paymentsApi.getBalance().then(r => setBalance(r.balance)).catch(() => { });
   }, []);
 
-  // Live WebSocket notifications
+  // Live WebSocket notifications (BILL_DUE handled globally by SocketProvider)
   useSocket(accessToken, {
     onNotification: useCallback((n: Notification) => {
       setUnread(p => p + 1);
-      if (n.type === 'BILL_DUE') {
-        // Show full-screen bill alert popup
-        setBillAlert(n);
-        usersApi.getMyBills().then(setBills).catch(() => {});
-      } else {
-        // Other notifications: small banner for 6 s
+      if (n.type !== 'BILL_DUE') {
+        // Show small banner for non-bill notifications only
         setLiveNotif(n);
         show(n.title, 'info');
         setTimeout(() => setLiveNotif(null), 6000);
@@ -101,14 +95,17 @@ export default function Dashboard() {
       show(`✗ Payment failed: ${d.error}`, 'error'), [show]),
   });
 
-  // Refresh data when tab becomes visible again (e.g. returning from BillAlert / Onboarding)
+  // Refresh data when tab becomes visible again
   useEffect(() => {
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        usersApi.getMyBills().then(setBills).catch(() => {});
-        paymentsApi.getBalance().then(r => setBalance(r.balance)).catch(() => {});
-        schedulesApi.list().then(s => setSchedules(s.filter((sc: Schedule) => sc.status === 'ACTIVE').slice(0, 5))).catch(() => {});
-        billerAccountsApi.list().then(setBillerAccounts).catch(() => {});
+        usersApi.getMyBills().then(setBills).catch(() => { });
+        paymentsApi.getBalance().then(r => setBalance(r.balance)).catch(() => { });
+        schedulesApi.list().then(s => setSchedules(
+          s.filter((sc: Schedule) => sc.status === 'ACTIVE')
+            .sort((a: Schedule, b: Schedule) => new Date(a.nextRunAt).getTime() - new Date(b.nextRunAt).getTime())
+            .slice(0, 5)
+        )).catch(() => { });
       }
     };
     document.addEventListener('visibilitychange', onVisible);
@@ -119,7 +116,10 @@ export default function Dashboard() {
       if (s?.status === 'ACTIVE') {
         setSchedules(prev => {
           const already = prev.some(x => x.id === s.id);
-          return already ? prev : [s, ...prev].slice(0, 5);
+          if (already) return prev;
+          return [...prev, s]
+            .sort((a, b) => new Date(a.nextRunAt).getTime() - new Date(b.nextRunAt).getTime())
+            .slice(0, 5);
         });
       }
     };
@@ -135,18 +135,20 @@ export default function Dashboard() {
     if (!user) { navigate('/login'); return; }
     (async () => {
       try {
-        const [s, u, b, bal, ba] = await Promise.all([
+        const [s, u, b, bal] = await Promise.all([
           schedulesApi.list(),
           notificationsApi.unreadCount(),
           usersApi.getMyBills(),
           paymentsApi.getBalance(),
-          billerAccountsApi.list(),
         ]);
-        setSchedules(s.filter((sc: Schedule) => sc.status === 'ACTIVE').slice(0, 5));
+        setSchedules(
+          s.filter((sc: Schedule) => sc.status === 'ACTIVE')
+            .sort((a: Schedule, b: Schedule) => new Date(a.nextRunAt).getTime() - new Date(b.nextRunAt).getTime())
+            .slice(0, 5)
+        );
         setUnread(u.count);
         setBills(b);
         setBalance(bal.balance);
-        setBillerAccounts(ba);
       } catch { /* silent */ }
       finally { setLoadingBills(false); }
 
@@ -157,22 +159,22 @@ export default function Dashboard() {
     })();
   }, [user, navigate]);
 
-  const currentSug  = suggestions[activeSugIdx];
-  const dismissSug  = () => {
+  const currentSug = suggestions[activeSugIdx];
+  const dismissSug = () => {
     setSuggestions(p => p.filter((_, i) => i !== activeSugIdx));
     setActiveSugIdx(0);
   };
 
   const navigateToBill = (bill: Bill) => {
     const q = new URLSearchParams({
-      biller:         bill.merchant?.name ?? 'Unknown',
-      amount:         String(bill.amount),
-      dueDate:        bill.dueDate,
-      description:    bill.description ?? '',
-      billId:         bill.id,
-      category:       bill.merchant?.category ?? '',
+      biller: bill.merchant?.name ?? 'Unknown',
+      amount: String(bill.amount),
+      dueDate: bill.dueDate,
+      description: bill.description ?? '',
+      billId: bill.id,
+      category: bill.merchant?.category ?? '',
       // accountId: merchant's eSewa/bank number — would come from real API
-      accountId:      bill.billerAccountId ?? '',
+      accountId: bill.billerAccountId ?? '',
     });
     navigate(`/bill-alert?${q}`);
   };
@@ -181,15 +183,15 @@ export default function Dashboard() {
     const meta = n.metadata as Record<string, unknown> | undefined;
     if (n.type === 'BILL_DUE' && meta?.billId) {
       const q = new URLSearchParams({
-        biller:    String(meta.merchantName ?? 'Merchant'),
-        amount:    String(meta.amount ?? 0),
-        dueDate:   String(meta.dueDate ?? ''),
+        biller: String(meta.merchantName ?? 'Merchant'),
+        amount: String(meta.amount ?? 0),
+        dueDate: String(meta.dueDate ?? ''),
         description: n.body,
-        billId:    String(meta.billId),
+        billId: String(meta.billId),
         accountId: String(meta.paymentAccount ?? meta.merchantPhone ?? ''),
-        esewaId:   String(meta.esewaId  ?? ''),
-        khaltiId:  String(meta.khaltiId ?? ''),
-        banks:     JSON.stringify(meta.banks ?? []),
+        esewaId: String(meta.esewaId ?? ''),
+        khaltiId: String(meta.khaltiId ?? ''),
+        banks: JSON.stringify(meta.banks ?? []),
       });
       navigate(`/bill-alert?${q}`);
     } else {
@@ -204,208 +206,24 @@ export default function Dashboard() {
     return 'Good evening,';
   };
 
-  // ── Bill Alert Popup handlers ─────────────────────────────────────────────
-  const [billAlertPaying, setBillAlertPaying] = useState(false);
-  const [billAlertPayMethod, setBillAlertPayMethod] = useState<'ESEWA' | 'BANK'>('ESEWA');
-  const [billAlertBank, setBillAlertBank]     = useState({ bankName: '', account: '', holder: '' });
-
-  const payBillAlert = async () => {
+  // ── Bill Alert Popup — REMOVED. SocketProvider handles it globally. ──────────
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _unused = async () => {  // stub to keep downstream refs from breaking
     if (!billAlert) return;
-    const meta   = billAlert.metadata as Record<string, unknown> | undefined;
+    const meta = billAlert.metadata as Record<string, unknown> | undefined;
     const amount = Number(meta?.amount ?? 0);
     const biller = String(meta?.merchantName ?? 'Merchant');
     const billId = meta?.billId ? String(meta.billId) : undefined;
     if (!amount) { setBillAlert(null); navigateFromNotif(billAlert); return; }
-    const esewaId    = meta?.esewaId  ? String(meta.esewaId)  : '';
-    const khaltiId   = meta?.khaltiId ? String(meta.khaltiId) : '';
-    const recipientId = esewaId || khaltiId || biller;
-    const provider    = (esewaId ? 'ESEWA' : khaltiId ? 'KHALTI' : 'WALLET') as 'ESEWA' | 'KHALTI' | 'WALLET';
-    setBillAlertPaying(true);
-    try {
-      await paymentsApi.execute({ amount, provider, recipientId, description: billAlert.body, billId });
-      refreshBalance();
-      usersApi.getMyBills().then(setBills).catch(() => {});
-      setBillAlert(null);
-      show(`✅ NPR ${amount.toLocaleString()} paid to ${biller}!`, 'success');
-    } catch { show('Payment failed. Please try again.', 'error'); }
-    finally { setBillAlertPaying(false); }
-  };
-
-  const scheduleBillAlert = () => {
-    if (!billAlert) return;
-    const meta         = billAlert.metadata as Record<string, unknown> | undefined;
-    const merchantName = String(meta?.merchantName ?? 'Bill Payment');
-    const merchantSlug = String(meta?.merchantSlug ?? '');
-    // Find matching biller account so we can include customerId
-    const acc = billerAccounts.find(a => a.billerSlug === merchantSlug);
-    const q = new URLSearchParams({
-      fromSmartBill:   'true',
-      name:            `${merchantName} — Bill`,
-      amount:          String(meta?.amount ?? ''),
-      billerName:      merchantName,
-      merchantSlug,
-      customerId:      acc?.customerId ?? '',
-      billerAccountId: acc?.id ?? '',
-      billerCategory:  (acc?.billerCategory ?? '').toUpperCase(),
-      description:     billAlert.body,
-      dueDate:         String(meta?.dueDate ?? ''),
-    });
-    setBillAlert(null);
-    navigate(`/schedules/new?${q}`);
+    const esewaId = meta?.esewaId ? String(meta.esewaId) : '';
+    // stub end
   };
 
   return (
     <div className="page bg-[#F5F7F5]">
       <ToastContainer toasts={toasts} />
 
-      {/* ── Full-screen Bill Alert Popup ── */}
-      {billAlert && (() => {
-        const meta     = billAlert.metadata as Record<string, unknown> | undefined;
-        const amount   = Number(meta?.amount ?? 0);
-        const biller   = String(meta?.merchantName ?? 'Merchant');
-        const dueDate  = meta?.dueDate ? String(meta.dueDate) : null;
-        const daysLeft = dueDate ? Math.ceil((new Date(dueDate).getTime() - Date.now()) / 86_400_000) : null;
-        const urgency  = daysLeft === null ? '' : daysLeft <= 0 ? '🔴 OVERDUE' : daysLeft === 1 ? '🟠 DUE TOMORROW' : `🟡 DUE IN ${daysLeft} DAYS`;
-
-        return (
-          <div className="fixed inset-0 z-50 flex items-end justify-center">
-            {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setBillAlert(null)} />
-
-            {/* Sheet — mobile-sized, centered, max 390px */}
-            <div className="relative w-full max-w-[390px] bg-white rounded-t-[32px] overflow-hidden animate-slide-up shadow-2xl mx-auto">
-              {/* Colored top strip */}
-              <div className={`${daysLeft !== null && daysLeft <= 1 ? 'bg-red-500' : 'bg-primary'} px-5 pt-6 pb-8`}>
-                <div className="flex justify-between items-start mb-4">
-                  <span className="text-white/0 text-sm">·</span>
-                  {urgency && (
-                    <span className="bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full tracking-wide">
-                      {urgency}
-                    </span>
-                  )}
-                  <button onClick={() => setBillAlert(null)} className="text-white/70 text-2xl leading-none">✕</button>
-                </div>
-                <div className="text-center">
-                  <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3">
-                    <span className="text-3xl">🏫</span>
-                  </div>
-                  <p className="text-white font-bold text-xl">{biller}</p>
-                  <p className="text-white/70 text-sm mt-0.5">New bill received</p>
-                </div>
-              </div>
-
-              {/* Content */}
-              <div className="px-5 pt-5 pb-8">
-                <div className="bg-gray-50 rounded-2xl p-4 mb-4">
-                  <p className="text-gray-400 text-xs text-center mb-1">{t('Amount Due')}</p>
-                  <p className="text-3xl font-bold text-gray-800 text-center">
-                    NPR {amount.toLocaleString('en-NP')}
-                  </p>
-                  {dueDate && (
-                    <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">
-                      <span className="text-gray-400 text-sm">{t('Due Date')}</span>
-                      <span className="text-gray-700 font-semibold text-sm">
-                        {new Date(dueDate).toLocaleDateString('en-NP', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </span>
-                    </div>
-                  )}
-                  {billAlert.body && (
-                    <p className="text-gray-400 text-xs text-center mt-2">{billAlert.body}</p>
-                  )}
-                </div>
-
-                {/* Payment methods from merchant — locked */}
-                {(meta?.esewaId || meta?.khaltiId || (Array.isArray(meta?.banks) && (meta.banks as unknown[]).length > 0)) && (
-                  <div className="bg-white border border-gray-100 rounded-xl p-3 mb-4">
-                    <p className="text-[9px] font-bold text-gray-400 uppercase mb-2">🔒 {t('Payment Account')}</p>
-                    {!!meta?.esewaId  && <p className="text-xs mb-1">🟢 eSewa: <strong>{String(meta.esewaId)}</strong></p>}
-                    {!!meta?.khaltiId && <p className="text-xs mb-1">🟣 Khalti: <strong>{String(meta.khaltiId)}</strong></p>}
-                    {(meta?.banks as Array<{bankName: string; accountNumber: string; accountHolder: string}> ?? []).map((b, i) => (
-                      <p key={i} className="text-xs mb-1">🏦 {b.bankName}: <strong>{b.accountNumber}</strong></p>
-                    ))}
-                  </div>
-                )}
-
-                {/* Pay method choice */}
-                <div className="flex gap-2 mb-1">
-                  <button onClick={() => setBillAlertPayMethod('ESEWA')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 transition-colors ${
-                      billAlertPayMethod === 'ESEWA' ? 'border-green-500 bg-green-50' : 'border-gray-100 bg-white'
-                    }`}>
-                    <img src="https://e7.pngegg.com/pngimages/261/608/png-clipart-esewa-zone-office-bayalbas-google-play-iphone-iphone-electronics-text-thumbnail.png"
-                      style={{ width: 20, height: 20, objectFit: 'contain', borderRadius: 4 }} alt="eSewa" />
-                    <span className={`text-sm font-semibold ${billAlertPayMethod === 'ESEWA' ? 'text-green-700' : 'text-gray-600'}`}>eSewa</span>
-                  </button>
-                  <button onClick={() => setBillAlertPayMethod('BANK')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl border-2 transition-colors ${
-                      billAlertPayMethod === 'BANK' ? 'border-primary bg-[#E8F5EE]' : 'border-gray-100 bg-white'
-                    }`}>
-                    <BsBank2 className={`w-4 h-4 ${billAlertPayMethod === 'BANK' ? 'text-primary' : 'text-gray-400'}`} />
-                    <span className={`text-sm font-semibold ${billAlertPayMethod === 'BANK' ? 'text-primary' : 'text-gray-600'}`}>Bank</span>
-                  </button>
-                </div>
-                {/* Bank details */}
-                {billAlertPayMethod === 'BANK' && (
-                  <div className="flex flex-col gap-2 mb-2">
-                    <select value={billAlertBank.bankName} onChange={e => setBillAlertBank(p => ({ ...p, bankName: e.target.value }))}
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary">
-                      <option value="">Select bank</option>
-                      {['Siddhartha Bank Ltd','Everest Bank Ltd','NIC Asia Bank','Nabil Bank','Himalayan Bank','Global IME Bank','NMB Bank','Sanima Bank'].map(b =>
-                        <option key={b} value={b}>{b}</option>)}
-                    </select>
-                    <input value={billAlertBank.account} onChange={e => setBillAlertBank(p => ({ ...p, account: e.target.value }))}
-                      placeholder="Account number"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
-                    <input value={billAlertBank.holder} onChange={e => setBillAlertBank(p => ({ ...p, holder: e.target.value }))}
-                      placeholder="Account holder name"
-                      className="w-full px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm focus:outline-none focus:border-primary" />
-                  </div>
-                )}
-
-                <div className="flex flex-col gap-3">
-                  <button
-                    onClick={payBillAlert}
-                    disabled={billAlertPaying}
-                    className="w-full py-4 bg-primary text-white font-bold rounded-2xl text-base flex items-center justify-center gap-2 disabled:opacity-60"
-                  >
-                    {billAlertPaying ? <><Spinner size={20} /> Processing...</> : `⚡ Pay via ${billAlertPayMethod === 'ESEWA' ? 'eSewa' : 'Bank'}`}
-                  </button>
-                  <button
-                    onClick={scheduleBillAlert}
-                    className="w-full py-3.5 border-2 border-primary text-primary font-bold rounded-2xl text-base"
-                  >
-                    📅 Schedule for Later
-                  </button>
-                  <button
-                    onClick={() => {
-                      // Save dismissed alert so Notifications page shows it as missed
-                      try {
-                        const dismissed = JSON.parse(localStorage.getItem('ps_dismissed_alerts') ?? '[]');
-                        const entry = {
-                          id:         billAlert.id,
-                          title:      billAlert.title,
-                          body:       billAlert.body,
-                          metadata:   billAlert.metadata,
-                          createdAt:  billAlert.createdAt,
-                          dismissedAt: new Date().toISOString(),
-                        };
-                        if (!dismissed.find((d: {id:string}) => d.id === billAlert.id)) {
-                          dismissed.unshift(entry);
-                          localStorage.setItem('ps_dismissed_alerts', JSON.stringify(dismissed.slice(0, 20)));
-                        }
-                      } catch { /* storage full */ }
-                      setBillAlert(null);
-                    }}
-                    className="w-full py-3 text-gray-400 text-sm font-medium"
-                  >
-                    Remind me later
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {/* Bill alert popup lives in SocketProvider (global, works on every page) */}
 
       {/* ── Header ── */}
       <div className="bg-white px-5 pt-12 pb-3 flex items-center justify-between border-b border-gray-100">
@@ -451,7 +269,7 @@ export default function Dashboard() {
                   className="text-white/60 text-sm leading-none"
                   title={balanceHidden ? 'Show balance' : 'Hide balance'}
                 >
-                  {balanceHidden ? '🙈' : '👁'}
+                  {balanceHidden ? '🔒' : '👁'}
                 </button>
               </div>
               <p className="text-white font-bold text-[26px] tracking-tight select-none">
@@ -636,11 +454,10 @@ export default function Dashboard() {
             {UTILITIES.map(u => (
               <button key={u.label} onClick={() => navigate(u.path)}
                 className="flex flex-col items-center gap-1.5">
-                <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center ${
-                  (u as any).highlight
-                    ? 'bg-primary text-white shadow-sm'
-                    : 'bg-[#E8F5EE] text-primary'
-                }`}>
+                <div className={`w-11 h-11 rounded-[12px] flex items-center justify-center ${(u as any).highlight
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-[#E8F5EE] text-primary'
+                  }`}>
                   {u.icon}
                 </div>
                 <span className={`text-[10px] text-center leading-tight ${(u as any).highlight ? 'font-semibold text-primary' : 'text-gray-700'}`}>
@@ -652,7 +469,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── Promo Banner ── */}
-        <button onClick={() => navigate('/health-score')}
+        <div
           className="mx-3.5 mb-4 w-[calc(100%-28px)] bg-primary rounded-2xl p-4 flex items-center justify-between">
           <div>
             <span className="inline-block bg-white/15 border border-white/30 rounded text-[9px] font-bold text-white px-2 py-0.5 mb-1.5 tracking-wide">
@@ -662,7 +479,7 @@ export default function Dashboard() {
             <p className="text-white/75 text-[10px]">On first Internet bill payment</p>
           </div>
           <span className="text-[36px] font-extrabold text-white/15">10%</span>
-        </button>
+        </div>
 
       </div>
 
@@ -676,30 +493,30 @@ export default function Dashboard() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const CATEGORY_META: Record<string, { icon: React.ReactNode; bg: string; color: string; label?: string }> = {
-  ELECTRICITY: { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50',  color: 'text-amber-600',  label: 'NEA Electricity'  },
-  UTILITY:     { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50',  color: 'text-amber-600'                             },
-  WATER:       { icon: <FaWater className="w-5 h-5" />,           bg: 'bg-sky-50',    color: 'text-sky-600',    label: 'KUKL Water'       },
-  INTERNET:    { icon: <BsWifi className="w-5 h-5" />,            bg: 'bg-blue-50',   color: 'text-blue-600'                              },
-  TV:          { icon: <BsTv className="w-5 h-5" />,              bg: 'bg-purple-50', color: 'text-purple-600', label: 'TV / Cable'       },
-  EDUCATION:   { icon: <IoSchoolOutline className="w-5 h-5" />,   bg: 'bg-violet-50', color: 'text-violet-600'                            },
-  SCHOOL:      { icon: <IoSchoolOutline className="w-5 h-5" />,   bg: 'bg-violet-50', color: 'text-violet-600', label: 'School Fee'       },
-  COLLEGE:     { icon: <IoSchoolOutline className="w-5 h-5" />,   bg: 'bg-indigo-50', color: 'text-indigo-600', label: 'College Fee'      },
-  TRAFFIC:     { icon: <RiCarLine className="w-5 h-5" />,         bg: 'bg-red-50',    color: 'text-red-600',    label: 'Traffic Fine'     },
-  GOVERNMENT:  { icon: <RiCarLine className="w-5 h-5" />,         bg: 'bg-red-50',    color: 'text-red-600'                               },
-  INSURANCE:   { icon: <BsShield className="w-5 h-5" />,          bg: 'bg-green-50',  color: 'text-green-600'                             },
-  RENT:        { icon: <BsHouseDoor className="w-5 h-5" />,       bg: 'bg-orange-50', color: 'text-orange-600', label: 'House Rent'       },
+  ELECTRICITY: { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50', color: 'text-amber-600', label: 'NEA Electricity' },
+  UTILITY: { icon: <BsLightningCharge className="w-5 h-5" />, bg: 'bg-amber-50', color: 'text-amber-600' },
+  WATER: { icon: <FaWater className="w-5 h-5" />, bg: 'bg-sky-50', color: 'text-sky-600', label: 'KUKL Water' },
+  INTERNET: { icon: <BsWifi className="w-5 h-5" />, bg: 'bg-blue-50', color: 'text-blue-600' },
+  TV: { icon: <BsTv className="w-5 h-5" />, bg: 'bg-purple-50', color: 'text-purple-600', label: 'TV / Cable' },
+  EDUCATION: { icon: <IoSchoolOutline className="w-5 h-5" />, bg: 'bg-violet-50', color: 'text-violet-600' },
+  SCHOOL: { icon: <IoSchoolOutline className="w-5 h-5" />, bg: 'bg-violet-50', color: 'text-violet-600', label: 'School Fee' },
+  COLLEGE: { icon: <IoSchoolOutline className="w-5 h-5" />, bg: 'bg-indigo-50', color: 'text-indigo-600', label: 'College Fee' },
+  TRAFFIC: { icon: <RiCarLine className="w-5 h-5" />, bg: 'bg-red-50', color: 'text-red-600', label: 'Traffic Fine' },
+  GOVERNMENT: { icon: <RiCarLine className="w-5 h-5" />, bg: 'bg-red-50', color: 'text-red-600' },
+  INSURANCE: { icon: <BsShield className="w-5 h-5" />, bg: 'bg-green-50', color: 'text-green-600' },
+  RENT: { icon: <BsHouseDoor className="w-5 h-5" />, bg: 'bg-orange-50', color: 'text-orange-600', label: 'House Rent' },
 };
 
 function SmartBillsSection({
   accounts, expanded, onToggle, onAddNew, onSetup, onViewAll, onPayTrafficFine, onScheduleTrafficFine,
 }: {
-  accounts:    BillerAccount[];
-  expanded:    boolean;
-  onToggle:    () => void;
-  onAddNew:    () => void;
-  onSetup:     () => void;
-  onViewAll:   () => void;
-  onPayTrafficFine:      (acc: BillerAccount) => void;
+  accounts: BillerAccount[];
+  expanded: boolean;
+  onToggle: () => void;
+  onAddNew: () => void;
+  onSetup: () => void;
+  onViewAll: () => void;
+  onPayTrafficFine: (acc: BillerAccount) => void;
   onScheduleTrafficFine: (acc: BillerAccount) => void;
 }) {
   return (
@@ -800,13 +617,13 @@ function TrafficFineDetails({
 }: { acc: BillerAccount; onPay: () => void; onSchedule: () => void }) {
   const details = (acc.details ?? {}) as Record<string, unknown>;
   const fineAmount = Number(details.fineAmount ?? 0);
-  const violation  = String(details.violation ?? 'Unknown violation');
+  const violation = String(details.violation ?? 'Unknown violation');
   const fiscalYear = String(details.fiscalYear ?? '');
-  const province   = String(details.province ?? '');
+  const province = String(details.province ?? '');
 
   // Compute days since saved (proxy for "approaching 60-day deadline")
   const daysSinceSaved = Math.floor((Date.now() - new Date(acc.createdAt).getTime()) / 86_400_000);
-  const daysLeft       = Math.max(0, 60 - daysSinceSaved);
+  const daysLeft = Math.max(0, 60 - daysSinceSaved);
   const approachingDeadline = daysLeft <= 14 && daysLeft > 0;
 
   return (
@@ -854,10 +671,10 @@ function TrafficFineDetails({
 }
 
 function RentDetails({ acc }: { acc: BillerAccount }) {
-  const details     = (acc.details ?? {}) as Record<string, unknown>;
-  const rentAmount  = Number(details.rentAmount ?? details.amount ?? 0);
-  const landlord    = String(details.landlordName ?? acc.customerId ?? '—');
-  const address     = String(details.propertyAddress ?? details.address ?? '');
+  const details = (acc.details ?? {}) as Record<string, unknown>;
+  const rentAmount = Number(details.rentAmount ?? details.amount ?? 0);
+  const landlord = String(details.landlordName ?? acc.customerId ?? '—');
+  const address = String(details.propertyAddress ?? details.address ?? '');
 
   return (
     <div className="mt-3 pt-3 border-t border-gray-100">

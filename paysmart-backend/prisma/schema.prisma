@@ -138,8 +138,9 @@ model User {
   phone      String?  @unique
   password   String
   avatarUrl  String?
-  fcmToken   String?
-  role       UserRole @default(USER)
+  fcmToken     String?
+  preferences  Json?   @map("preferences")  // { autoPayEnabled, smsReminder, pushNotification, partialPayment }
+  role         UserRole @default(USER)
   isActive   Boolean  @default(true)
   isVerified Boolean  @default(false)
   createdAt  DateTime @default(now())

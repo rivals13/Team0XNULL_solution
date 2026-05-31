@@ -33,7 +33,6 @@ export default function BillAlert() {
   const category    = params.get('category')    ?? '';
   // Merchant payment methods (passed from notification metadata)
   const esewaId     = params.get('esewaId')     ?? '';
-  const khaltiId    = params.get('khaltiId')    ?? '';
   const banksParam  = params.get('banks')       ?? '[]';
   const merchantBanks: BankAccount[] = (() => { try { return JSON.parse(banksParam); } catch { return []; } })();
   const [selectedBank, setSelectedBank] = useState<BankAccount | null>(

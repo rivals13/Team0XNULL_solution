@@ -8,6 +8,8 @@ import { SmsService } from '../sms/sms.service';
 import { SmsTemplates } from '../sms/sms.templates';
 import { EncryptionService } from '../common/encryption/encryption.service';
 import { BillInquiryService } from '../bill-inquiry/bill-inquiry.service';
+import { UsersService, DEFAULT_PREFERENCES } from '../users/users.service';
+import { BillerAccountsService } from '../biller-accounts/biller-accounts.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import {
@@ -25,11 +27,13 @@ export class ScheduleService {
   private readonly logger = new Logger(ScheduleService.name);
 
   constructor(
-    private readonly prisma: PrismaService,
-    private readonly smsService: SmsService,
-    private readonly enc: EncryptionService,
-    private readonly billInquiry: BillInquiryService,
-    @InjectQueue(PAYMENT_QUEUE) private readonly paymentQueue: Queue,
+    private readonly prisma:           PrismaService,
+    private readonly smsService:       SmsService,
+    private readonly enc:              EncryptionService,
+    private readonly billInquiry:      BillInquiryService,
+    private readonly usersService:     UsersService,
+    private readonly billerAccounts:   BillerAccountsService,
+    @InjectQueue(PAYMENT_QUEUE)  private readonly paymentQueue:  Queue,
     @InjectQueue(SCHEDULE_QUEUE) private readonly scheduleQueue: Queue,
   ) { }
 
@@ -68,6 +72,23 @@ export class ScheduleService {
         user.phone,
         SmsTemplates.scheduleCreated(schedule.name, schedule.amount, nextRunAt),
       );
+    }
+
+    // Notify merchant of SCHEDULED action (if this schedule is linked to a biller account)
+    if (schedule.billerAccountId) {
+      const acc = await this.prisma.billerAccount.findUnique({
+        where:   { id: schedule.billerAccountId },
+        include: { merchant: { select: { slug: true } } },
+      });
+      if (acc) {
+        this.billerAccounts.notifyMerchantAction(
+          acc.merchant.slug,
+          acc.accountNumber,
+          'SCHEDULED',
+          schedule.amount,
+          nextRunAt.toISOString(),
+        ).catch(err => this.logger.warn(`[Schedule] Merchant notify failed: ${err?.message}`));
+      }
     }
 
     return schedule;

@@ -9,6 +9,7 @@ import { WebhooksModule } from '../webhooks/webhooks.module';
 import { BalanceService } from '../schedule/balance.service';
 import { SmsModule } from '../sms/sms.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { UsersModule } from '../users/users.module';
 import { PAYMENT_QUEUE, SCHEDULE_QUEUE, BILL_DUE_QUEUE } from './queue.constants';
 
 @Module({
@@ -21,6 +22,7 @@ import { PAYMENT_QUEUE, SCHEDULE_QUEUE, BILL_DUE_QUEUE } from './queue.constants
     WebhooksModule,
     SmsModule,
     NotificationsModule,
+    UsersModule,
   ],
   providers: [PaymentProcessor, BalanceCheckProcessor, BillDueProcessor, BalanceService],
 })

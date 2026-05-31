@@ -38,8 +38,8 @@ export default function Login() {
     <div className="min-h-screen bg-white flex flex-col">
       {/* Header */}
       <div className="bg-primary px-6 pt-16 pb-12 rounded-b-[40px]">
-        <h1 className="text-3xl font-bold text-white">Welcome back 👋</h1>
-        <p className="text-white/70 mt-1">Sign in to your PaySmart account</p>
+        <h1 className="text-3xl font-bold text-center text-white">Welcome back 👋</h1>
+        <p className="text-center text-white/70 mt-1">Sign in to your PaySmart account</p>
       </div>
 
       <div className="flex-1 px-6 pt-8">
@@ -80,12 +80,7 @@ export default function Login() {
           <Link to="/register" className="text-primary font-semibold">Register</Link>
         </p>
 
-        {/* Demo hint */}
-        <div className="mt-8 p-4 bg-green-50 rounded-2xl border border-green-100">
-          <p className="text-xs text-gray-500 font-medium mb-1">🧪 Demo Credentials</p>
-          <p className="text-xs text-gray-400">Email: demo@paysmart.com</p>
-          <p className="text-xs text-gray-400">Password: demo1234</p>
-        </div>
+      
       </div>
     </div>
   );

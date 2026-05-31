@@ -89,13 +89,15 @@ export class NotificationsService {
     // Dedicated WS event for bill-due → triggers the in-app popup on any page
     if (type === 'BILL_DUE') {
       this.gateway.emitToUser(userId, 'bill.due', {
-        ...basePayload,
-        merchantName: metadata?.merchantName,
-        merchantSlug: metadata?.merchantSlug,
-        amount:       metadata?.amount,
-        dueDate:      metadata?.dueDate,
-        description:  metadata?.description,
-        billId:       metadata?.billId,
+        type:         'BILL_DUE',
+        merchantName: metadata?.merchantName  ?? '',
+        merchantSlug: metadata?.merchantSlug  ?? '',
+        customerId:   metadata?.customerId    ?? '',   // ← crucial for pre-filling forms
+        amount:       metadata?.amount        ?? 0,
+        dueDate:      metadata?.dueDate       ?? '',
+        description:  metadata?.description   ?? '',
+        billId:       metadata?.billId        ?? '',
+        id:           notification.id,
       });
     }
 
