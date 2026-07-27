@@ -3,6 +3,66 @@
   "description": "Stores detected recurring utility and top-up payment priorities for user review.",
   "records": [
     {
+      "notification_id": "NOTIF-LBEF-MANUAL-001",
+      "service_provider": "LBEF College Fee",
+      "category": "education",
+      "payment_family": "education",
+      "wallet": null,
+      "currency": null,
+      "occurrences_in_year": 9,
+      "average_amount": 150855.56,
+      "latest_amount": 150700.0,
+      "due_amount": 150855.56,
+      "first_transaction_date": "2025-01-30",
+      "latest_transaction_date": "2026-05-29",
+      "due_date": "2026-07-28",
+      "notification_window": {
+        "start": "2026-07-18",
+        "end": "2026-07-21"
+      },
+      "reminders": {
+        "10_days_before": "2026-07-18",
+        "4_days_before": "2026-07-24",
+        "1_days_before": "2026-07-27"
+      },
+      "transaction_ids": [
+        "TXN1",
+        "TXN2",
+        "TXN3",
+        "TXN4",
+        "TXN5",
+        "TXN6",
+        "TXN7",
+        "TXN8",
+        "TXN9"
+      ],
+      "merchant_reference": {
+        "source": "history_reference",
+        "request_url": null,
+        "due_amount": 150855.56,
+        "due_date": "2026-07-28",
+        "response": {
+          "provider": "LBEF College Fee",
+          "category": "education",
+          "average_amount": 150855.56,
+          "latest_amount": 150700.0
+        },
+        "captured_at": "2026-05-29T00:00:00Z"
+      },
+      "frequency_tier": "recurring",
+      "status": "pending",
+      "detected_on": "2026-06-02",
+      "priority_score": 0.99,
+      "priority": {
+        "payment_count": 9,
+        "average_amount": 150855.56,
+        "latest_transaction_date": "2026-05-29",
+        "priority_score": 0.99,
+        "sort_rule": "manual_priority_rank"
+      },
+      "priority_rank": 1
+    },
+    {
       "notification_id": "NOTIF-7778AE33AF",
       "service_provider": "Nabil Bank Loan",
       "category": "financial",
@@ -63,7 +123,7 @@
         "user_behavior_score": 0.9782770025714377,
         "sort_rule": "amount -> frequency -> recency -> alphabetical"
       },
-      "priority_rank": 1
+      "priority_rank": 2
     },
     {
       "notification_id": "NOTIF-0BFB4DA7C6",
@@ -125,7 +185,7 @@
         "user_behavior_score": 0.9752639422601379,
         "sort_rule": "amount -> frequency -> recency -> alphabetical"
       },
-      "priority_rank": 2,
+      "priority_rank": 3,
       "scheduled_at": "2026-05-30T12:58:41Z"
     }
   ]

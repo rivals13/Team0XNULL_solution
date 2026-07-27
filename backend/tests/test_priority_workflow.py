@@ -137,6 +137,46 @@ class PriorityWorkflowPersistenceTests(unittest.TestCase):
         self.assertEqual(payload["records"], [])
         self.assertIn("NOTIF-RESEED-1", payload.get("protected_notification_ids", []))
 
+    def test_load_notifications_prefers_database_priority_rank(self) -> None:
+        records = [
+            {
+                "notification_id": "NOTIF-NABIL",
+                "service_provider": "Nabil Bank Loan",
+                "average_amount": 50000,
+                "occurrences_in_year": 9,
+                "latest_transaction_date": "2026-06-05",
+                "priority_rank": 2,
+                "status": "pending",
+            },
+            {
+                "notification_id": "NOTIF-LBEF",
+                "service_provider": "LBEF College Fee",
+                "average_amount": 150000,
+                "occurrences_in_year": 9,
+                "latest_transaction_date": "2026-05-29",
+                "priority_rank": 1,
+                "status": "pending",
+            },
+            {
+                "notification_id": "NOTIF-NO-RANK",
+                "service_provider": "NEA WiFi Bill",
+                "average_amount": 1000,
+                "occurrences_in_year": 8,
+                "latest_transaction_date": "2026-03-30",
+                "status": "pending",
+            },
+        ]
+
+        self._write_notification_payload(records)
+        loaded = workflow.load_notifications()
+
+        self.assertEqual(loaded[0]["notification_id"], "NOTIF-LBEF")
+        self.assertEqual(loaded[1]["notification_id"], "NOTIF-NABIL")
+        self.assertEqual(loaded[2]["notification_id"], "NOTIF-NO-RANK")
+        self.assertEqual(loaded[0]["priority_rank"], 1)
+        self.assertEqual(loaded[1]["priority_rank"], 2)
+        self.assertEqual(loaded[2]["priority_rank"], 3)
+
 
 if __name__ == "__main__":
     unittest.main()

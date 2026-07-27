@@ -28,4 +28,5 @@ def configure_middleware(app: FastAPI, origins: Iterable[str] | None = None) -> 
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    
+
+

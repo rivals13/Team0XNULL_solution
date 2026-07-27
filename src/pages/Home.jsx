@@ -45,6 +45,7 @@ const Home = () => {
   const [showPaidConfirmation, setShowPaidConfirmation] = useState(false);
   const [paidToName, setPaidToName] = useState("");
   const [showNEAAlert, setShowNEAAlert] = useState(false);
+  const [savingNotificationId, setSavingNotificationId] = useState(null);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -81,9 +82,91 @@ const Home = () => {
 
   const normalizeScheduleLabel = (value) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "").trim();
 
+  const isNotificationScheduled = (notification) => {
+    if (!notification) {
+      return false;
+    }
+
+    const notificationId = notification.notification_id != null ? String(notification.notification_id) : null;
+    const providerLabel = normalizeScheduleLabel(notification.service_provider);
+
+    return liveSchedules.some((item) => {
+      const scheduleNotificationId = item?.notification_id != null ? String(item.notification_id) : null;
+      if (notificationId && scheduleNotificationId && notificationId === scheduleNotificationId) {
+        return true;
+      }
+
+      return providerLabel && normalizeScheduleLabel(item?.service_provider) === providerLabel;
+    });
+  };
+
+  const sortedPriorityNotifications = [...liveNotifications]
+    .filter((item) => Number.isFinite(Number(item?.priority_rank)))
+    .sort((left, right) => Number(left.priority_rank) - Number(right.priority_rank));
+
+  const firstPriorityNotification = sortedPriorityNotifications[0] ?? null;
+  const secondPriorityNotification = sortedPriorityNotifications[1] ?? null;
+  const firstPrioritySaved = isNotificationScheduled(firstPriorityNotification);
+
+  const savedAutomationCount = liveSchedules.reduce((count, schedule) => {
+    const hasLink = schedule?.notification_id != null || Boolean(schedule?.service_provider);
+    return hasLink ? count + 1 : count;
+  }, 0);
+
   const resolveNotificationForPayment = () => {
     const targetLabel = normalizeScheduleLabel(paymentDetails?.name);
     return liveNotifications.find((item) => normalizeScheduleLabel(item.service_provider) === targetLabel) ?? null;
+  };
+
+  const handleScheduleNotification = async (notification) => {
+    if (!notification?.notification_id) {
+      alert("This payment cannot be scheduled yet because the backend notification was not found.");
+      return;
+    }
+
+    if (isNotificationScheduled(notification)) {
+      return;
+    }
+
+    setSavingNotificationId(String(notification.notification_id));
+
+    try {
+      const scheduledDate = notification.due_date ?? notification.latest_transaction_date ?? null;
+      const rawAmount = Number(notification.due_amount ?? notification.average_amount ?? notification.latest_amount ?? 0);
+
+      if (!Number.isFinite(rawAmount)) {
+        alert("Invalid scheduled amount. Please enter a numeric amount.");
+        return;
+      }
+
+      const response = await createSchedule(notification.notification_id, scheduledDate, rawAmount);
+      const outcome = resolveScheduleSaveOutcome(response);
+
+      if (!outcome.ok) {
+        throw new Error(outcome.message);
+      }
+
+      setLiveSchedules((current) => {
+        const scheduledItem = outcome.scheduledItem;
+        if (!scheduledItem) {
+          return current;
+        }
+
+        const filteredSchedules = current.filter((item) => {
+          if (scheduledItem.notification_id != null && item.notification_id != null) {
+            return String(item.notification_id) !== String(scheduledItem.notification_id);
+          }
+
+          return normalizeScheduleLabel(item.service_provider) !== normalizeScheduleLabel(scheduledItem.service_provider);
+        });
+
+        return [...filteredSchedules, scheduledItem];
+      });
+    } catch {
+      alert("Save failed");
+    } finally {
+      setSavingNotificationId(null);
+    }
   };
 
   const handleIgnoreSchedule = async (schedule) => {
@@ -961,6 +1044,93 @@ const Home = () => {
                 />
               ))}
             </div>
+          </section>
+
+          <section className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-base font-bold">Priority Automation</h2>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700">
+                Saved automations {savedAutomationCount}
+              </span>
+            </div>
+
+            {firstPriorityNotification ? (
+              <article className="rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700">
+                      Priority #{firstPriorityNotification.priority_rank}
+                    </p>
+                    <h3 className="mt-1 text-sm font-extrabold text-gray-900">
+                      {firstPriorityNotification.service_provider ?? "Top priority service"}
+                    </h3>
+                    <p className="mt-1 text-xs font-medium text-gray-600">
+                      Due {firstPriorityNotification.due_date ?? firstPriorityNotification.latest_transaction_date ?? "soon"} · NPR {Number(firstPriorityNotification.due_amount ?? firstPriorityNotification.average_amount ?? firstPriorityNotification.latest_amount ?? 0).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={firstPrioritySaved || savingNotificationId === String(firstPriorityNotification.notification_id)}
+                    onClick={() => handleScheduleNotification(firstPriorityNotification)}
+                    className={`rounded-xl px-3 py-2 text-[11px] font-bold uppercase tracking-wide transition-transform active:scale-95 disabled:cursor-not-allowed ${firstPrioritySaved
+                      ? "bg-emerald-200 text-emerald-800"
+                      : "bg-[#00654b] text-white disabled:opacity-70"
+                      }`}
+                  >
+                    {savingNotificationId === String(firstPriorityNotification.notification_id)
+                      ? "Saving..."
+                      : firstPrioritySaved
+                        ? "Saved"
+                        : "Save"}
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-600">
+                  Save this first priority schedule once. After saving, it stays locked as Saved and does not require re-scheduling.
+                </p>
+              </article>
+            ) : (
+              <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 text-xs font-medium text-gray-500">
+                No priority schedule suggestions available right now.
+              </div>
+            )}
+
+            {firstPrioritySaved && secondPriorityNotification ? (
+              <article className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+                <div className="mb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">
+                      Priority #{secondPriorityNotification.priority_rank}
+                    </p>
+                    <h3 className="mt-1 text-sm font-extrabold text-gray-900">
+                      {secondPriorityNotification.service_provider ?? "Second priority service"}
+                    </h3>
+                    <p className="mt-1 text-xs font-medium text-gray-600">
+                      Due {secondPriorityNotification.due_date ?? secondPriorityNotification.latest_transaction_date ?? "soon"} · NPR {Number(secondPriorityNotification.due_amount ?? secondPriorityNotification.average_amount ?? secondPriorityNotification.latest_amount ?? 0).toLocaleString()}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isNotificationScheduled(secondPriorityNotification) || savingNotificationId === String(secondPriorityNotification.notification_id)}
+                    onClick={() => handleScheduleNotification(secondPriorityNotification)}
+                    className={`rounded-xl px-3 py-2 text-[11px] font-bold uppercase tracking-wide transition-transform active:scale-95 disabled:cursor-not-allowed ${isNotificationScheduled(secondPriorityNotification)
+                      ? "bg-emerald-200 text-emerald-800"
+                      : "bg-[#00654b] text-white disabled:opacity-70"
+                      }`}
+                  >
+                    {savingNotificationId === String(secondPriorityNotification.notification_id)
+                      ? "Saving..."
+                      : isNotificationScheduled(secondPriorityNotification)
+                        ? "Saved"
+                        : "Save"}
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-600">Do you want to automate this second priority payment as well?</p>
+              </article>
+            ) : null}
           </section>
 
           <section>

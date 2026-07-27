@@ -657,15 +657,23 @@ def load_notifications() -> list[dict[str, Any]]:
     records = payload.get("records", [])
     if not isinstance(records, list):
         return []
-    sorted_records = sorted(
-        records,
-        key=lambda item: (
+    def sort_key(item: dict[str, Any]) -> tuple[float, float, float, float, str]:
+        rank_value = item.get("priority_rank")
+        try:
+            rank = int(rank_value)
+            rank_key = float(rank) if rank > 0 else float("inf")
+        except (TypeError, ValueError):
+            rank_key = float("inf")
+
+        return (
+            rank_key,
             -float(item.get("average_amount", 0) or 0),
             -int(item.get("occurrences_in_year", 0) or 0),
             -_sort_date_value(str(item.get("latest_transaction_date", ""))),
             str(item.get("service_provider", "")).lower(),
-        ),
-    )
+        )
+
+    sorted_records = sorted(records, key=sort_key)
     normalized_records: list[dict[str, Any]] = []
     for record in sorted_records:
         if not isinstance(record, dict):

@@ -57,6 +57,6 @@ export async function ignoreScheduledPayment(scheduleId) { return requestJson(`/
 
 export async function fetchScheduleSnapshot() { const [transactions, priorityPayload, schedules] = await Promise.all([ fetchTransactionHistory(), requestJson("/api/utility-priority-list", { authenticated: false }), fetchSchedules() ]); const mappedPriorityPatterns = (priorityPayload.priority_list ?? []).map(mapPriorityItemToPattern); return { connected: true, transactions, patterns: mappedPriorityPatterns.length > 0 ? mappedPriorityPatterns : fallbackPatterns, schedules }; }
 
-export async function createAutomationRule(payload) { return requestJson("/automation", { method: "POST", body: JSON.stringify(payload) }); }
+export async function createAutomationRule(payload) { return requestJson("/automation", { method: "POST", authenticated: true, body: JSON.stringify(payload) }); }
 
 export async function fetchAutomations() { return requestJson("/automation", { authenticated: true }); }
